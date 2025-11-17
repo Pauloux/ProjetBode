@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="56"
+   height="56"
+   viewBox="0 0 56 56"
+   version="1.1"
+   id="svg15"
+   sodipodi:docname="Error_icon.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   inkscape:export-filename="Error_icon.png"
+   inkscape:export-xdpi="25.714285"
+   inkscape:export-ydpi="25.714285"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <sodipodi:namedview
+     id="namedview17"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="12.265625"
+     inkscape:cx="25.966879"
+     inkscape:cy="27.923567"
+     inkscape:window-width="1920"
+     inkscape:window-height="939"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg15" />
+  <!-- Generator: Sketch 41.2 (35397) - http://www.bohemiancoding.com/sketch -->
+  <title
+     id="title2">dialog-error</title>
+  <desc
+     id="desc4">Created with Sketch.</desc>
+  <defs
+     id="defs6" />
+  <g
+     id="Page-1"
+     stroke="none"
+     stroke-width="1"
+     fill="none"
+     fill-rule="evenodd"
+     transform="translate(-4,-4)">
+    <g
+       id="dialog-error">
+      <circle
+         id="Oval"
+         fill="#c51818"
+         cx="32"
+         cy="32"
+         r="28" />
+      <path
+         d="m 40.749477,20.559466 c 0.743382,-0.743382 1.943483,-0.748541 2.692077,5.3e-5 0.743411,0.743412 0.74576,1.946371 5.3e-5,2.692077 L 23.250523,43.442681 c -0.743382,0.743381 -1.943483,0.74854 -2.692077,-5.4e-5 -0.743411,-0.743411 -0.745759,-1.946371 -5.3e-5,-2.692077 z"
+         id="Rectangle"
+         fill="#ffffff" />
+      <path
+         d="m 43.440584,40.747622 c 0.743315,0.743315 0.748474,1.943308 -5.3e-5,2.691836 -0.743345,0.743344 -1.946197,0.745693 -2.691836,5.3e-5 L 20.559416,23.250232 c -0.743315,-0.743315 -0.748474,-1.943309 5.3e-5,-2.691836 0.743345,-0.743345 1.946197,-0.745693 2.691836,-5.3e-5 z"
+         id="path11"
+         fill="#ffffff" />
+    </g>
+  </g>
+  <metadata
+     id="metadata246">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>dialog-error</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>
