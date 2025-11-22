@@ -63,13 +63,15 @@ class MenuBar (tk.Menu):
 		"""
 		if (self.show_gain.get() == False and self.show_phase.get() == False):
 			self.logger.debug("show_gain and show_phase both set to False")
-			self.show_gain.set(not self.prev_show_gain.get())	
+			self.show_gain.set(not self.prev_show_gain.get())
 			self.show_phase.set(not self.prev_show_phase.get())
 		
 		self.prev_show_gain.set(self.show_gain.get())
 		self.prev_show_phase.set(self.show_phase.get())
 
 		self._update_state_number_of_graph()
+
+		self._send_callback_graph_display()
 
 	def _on_graph_selection (self, *args):
 		"""
@@ -85,3 +87,27 @@ class MenuBar (tk.Menu):
 
 		self.show_one_graph.set(self.number_of_graph.get() == 1)
 		self.show_two_graph.set(self.number_of_graph.get() == 2)
+
+		self._send_callback_graph_display()
+	
+	def _is_show_gain_selected (self):
+		return self.show_gain.get()
+	
+	def _is_show_phase_selected (self):
+		return self.show_phase.get()
+	
+	def _is_show_1_graph_selected (self):
+		return self.show_one_graph.get()
+	
+	def trigger_callback_graph_display (self):
+		self._send_callback_graph_display()
+	
+	def _send_callback_graph_display (self):
+		self.callback_graph_display(
+			show_gain = self._is_show_gain_selected(),
+			show_phase = self._is_show_phase_selected(),
+			show_on_same_graph = self._is_show_1_graph_selected()
+		)
+
+	def set_callback_graph_display (self, callback_function):
+		self.callback_graph_display = callback_function
