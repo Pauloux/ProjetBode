@@ -1,3 +1,7 @@
+# À faire
+# Mettre le self.logger = logger au début du __init__
+# Utiliser le ListSelector dans la sélection des instruments ?
+
 import tkinter as tk
 from tkinter import ttk
 
@@ -43,19 +47,19 @@ class LeftPanel (ttk.Frame):
 		title_frame.columnconfigure(1, weight=0)
 		title_frame.columnconfigure(2, weight=1)	
 		
-class FrequencySweepFrame:
+class FrequencySweepFrame (ttk.Frame):
 	def __init__ (self, parent, row, combobox_values, combobox_default_index, logger):
 		self.logger = logger
 
-		self.main_frame = tk.Frame(parent)
-		self.main_frame.grid(column=0, row=row, sticky="ew", padx=5, pady=5)
-		self.main_frame.columnconfigure(0, weight=1)
+		super().__init__(parent)
+		self.grid(column=0, row=row, sticky="ew", padx=5, pady=5)
+		self.columnconfigure(0, weight=1)
 
 		self._create_type_selector()
 		self._create_points_spacing_selector(combobox_values, combobox_default_index)
 	
 	def _create_type_selector (self):
-		self.type_selector_frame = ttk.Frame(self.main_frame)
+		self.type_selector_frame = ttk.Frame(self)
 		self.type_selector_frame.grid(column=0, row=0, sticky="ew")
 		
 		label = ttk.Label(self.type_selector_frame, text="Balayage")
@@ -73,7 +77,7 @@ class FrequencySweepFrame:
 		self.radiobutton_is_points_selected = tk.BooleanVar(value=True)
 		self.radiobutton_is_points_selected.trace_add("write", lambda *args: self._update_selectors_state())
 
-		self.points_spacing_selector_frame = ttk.Frame(self.main_frame)
+		self.points_spacing_selector_frame = ttk.Frame(self)
 		self.points_spacing_selector_frame.grid(column=0, row=1, sticky="ew")
 		self.points_spacing_selector_frame.columnconfigure(0, weight=1)
 		
@@ -154,18 +158,18 @@ class FrequencySweepFrame:
 		self.logger.debug(f"Sweep type set to {self.type_selector_combobox.get()}")
 		self._update_selectors_display()
 
-class InstrumentConfigFrame:
+class InstrumentConfigFrame (ttk.Frame):
 	def __init__ (self, parent, row, label_text, port_values, model_values, icon, logger):
 		self.logger = logger
 		self.icon = icon
 		self.label_text = label_text
 
-		self.main_frame = tk.Frame(parent)
-		self.main_frame.grid(column=0, row=row, sticky="ew", padx=5, pady=5)
+		super().__init__(parent)
+		self.grid(column=0, row=row, sticky="ew", padx=5, pady=5)
 
-		self.main_frame.columnconfigure(0, weight=1)
-		self.main_frame.columnconfigure(1, weight=0)
-		self.main_frame.columnconfigure(2, weight=0)
+		self.columnconfigure(0, weight=1)
+		self.columnconfigure(1, weight=0)
+		self.columnconfigure(2, weight=0)
 
 		self._create_label(label_text)
 		self._create_refresh_button()
@@ -174,7 +178,7 @@ class InstrumentConfigFrame:
 		self.model_selector = self._create_list_selector(2, model_values, 0)
 
 	def _create_list_selector (self, row, values , pady):
-		combobox = ttk.Combobox(self.main_frame, values=values, width=15, justify=tk.LEFT, state="readonly")
+		combobox = ttk.Combobox(self, values=values, width=15, justify=tk.LEFT, state="readonly")
 		combobox.current(0)
 		combobox.bind("<<ComboboxSelected>>", clear_selection)
 		combobox.grid(column=0, columnspan=3, row=row, sticky="e", pady=pady)
@@ -182,18 +186,18 @@ class InstrumentConfigFrame:
 		return combobox
 	
 	def _create_status_icon (self):
-		self.status_icon = ttk.Label(self.main_frame, image=self.icon["OK"])
+		self.status_icon = ttk.Label(self, image=self.icon["OK"])
 		self.status_icon.grid(column=2, row=0, sticky="e")
 		self._set_status_icon(False)
 
 	def _create_label(self, label_text):
-		label = ttk.Label(self.main_frame, text=label_text)
+		label = ttk.Label(self, text=label_text)
 		label.grid(column=0, row=0, sticky="w")
 	
 	def _create_refresh_button (self):
 		self.status_is_OK = tk.BooleanVar(value = False)
 
-		self.refresh_button = tk.Button(self.main_frame, image=self.icon["refresh"], command=self._on_refresh_button_press)
+		self.refresh_button = tk.Button(self, image=self.icon["refresh"], command=self._on_refresh_button_press)
 		self.refresh_button.grid(column=1, row=0, sticky="e", padx=5)
 	
 	def _on_refresh_button_press (self):
@@ -208,96 +212,97 @@ class InstrumentConfigFrame:
 		else:
 			self.status_icon.configure(image=self.icon["error"])
 
-class ValueAndUnitSelector:
+class ValueAndUnitSelector (ttk.Frame):
 	def __init__ (self, parent, row, label_text, spinbox_min, spinbox_max, spinbox_increment, spinbox_default_value, combobox_values, combobox_default_index, pady, logger):
 		self.logger = logger
 
-		self.main_frame = tk.Frame(parent)
-		self.main_frame.grid(column=0, row=row, sticky="ew", padx=5, pady=pady)
+		super().__init__(parent)
+		self.grid(column=0, row=row, sticky="ew", padx=5, pady=pady)
 
-		self.main_frame.columnconfigure(0, weight=1)
-		self.main_frame.columnconfigure(1, weight=0)
-		self.main_frame.columnconfigure(2, weight=0)
+		self.columnconfigure(0, weight=1)
+		self.columnconfigure(1, weight=0)
+		self.columnconfigure(2, weight=0)
 		
 		self._create_label(label_text)
 		self._create_value_selector(spinbox_min, spinbox_max, spinbox_increment, spinbox_default_value)
 		self._create_unit_selector(combobox_values, combobox_default_index)
 	
 	def _create_label (self, label_text):
-		label = ttk.Label(self.main_frame, text=label_text)
+		label = ttk.Label(self, text=label_text)
 		label.grid(column=0, row=0, sticky="w")
 
 	def _create_value_selector (self, spinbox_min, spinbox_max, spinbox_increment, spinbox_default_value):
-		self.spinbox = tk.Spinbox(self.main_frame, from_=spinbox_min, to=spinbox_max, increment=spinbox_increment, wrap=False, justify=tk.RIGHT, width=8)
+		self.spinbox = tk.Spinbox(self, from_=spinbox_min, to=spinbox_max, increment=spinbox_increment, wrap=False, justify=tk.RIGHT, width=8)
 		set_spinbox_value(self.spinbox, spinbox_default_value)
 		self.spinbox.grid(column=1, row=0, sticky="e")
 	
 	def _create_unit_selector (self, values, default_index):
-		self.combobox = ttk.Combobox(self.main_frame, values=values, width=6, justify=tk.LEFT, state="readonly")
+		self.combobox = ttk.Combobox(self, values=values, width=6, justify=tk.LEFT, state="readonly")
 		self.combobox.current(default_index)
 		self.combobox.bind("<<ComboboxSelected>>", clear_selection)
 		self.combobox.grid(column=2, row=0, sticky="e")
 	
 	def hide (self):
-		self.main_frame.grid_remove()
+		self.grid_remove()
 	
 	def show (self):
-		self.main_frame.grid()
+		self.grid()
 
-class ListSelector:
+class ListSelector (ttk.Frame):
 	def __init__ (self, parent, row, label_text, combobox_values, logger):
 		self.logger = logger
 
-		self.main_frame = tk.Frame(parent)
-		self.main_frame.grid(column=0, row=row, sticky="ew", padx=5)
+		super().__init__(parent)
+		self.grid(column=0, row=row, sticky="ew", padx=5)
 
-		self.main_frame.columnconfigure(0, weight=1)
-		self.main_frame.columnconfigure(1, weight=0)
+		self.columnconfigure(0, weight=1)
+		self.columnconfigure(1, weight=0)
 
 		self._create_label(label_text)
 		self._create_list_selector(combobox_values)
 		
 	def _create_label (self, label_text):
-		label = ttk.Label(self.main_frame, text=label_text)
+		label = ttk.Label(self, text=label_text)
 		label.grid(column=0, row=0, sticky="w")
 
 	def _create_list_selector (self, values):
-		self.combobox = ttk.Combobox(self.main_frame, values=values, width=6, justify=tk.LEFT, state="readonly")
+		self.combobox = ttk.Combobox(self, values=values, width=6, justify=tk.LEFT, state="readonly")
 		self.combobox.current(0)
 		self.combobox.bind("<<ComboboxSelected>>", clear_selection)
 		self.combobox.grid(column=1, row=0, sticky="e")
 
-class NumberSelector:
+class NumberSelector (ttk.Frame):
 	def __init__ (self, parent, row, label_text, min_value, max_value, increment, default_value, logger):
 		self.logger = logger
 
-		self.main_frame = tk.Frame(parent)
-		self.main_frame.grid(column=0, row=row, sticky="ew", padx=5)
+		super().__init__(parent)
+		self.grid(column=0, row=row, sticky="ew", padx=5)
 
-		self.main_frame.columnconfigure(0, weight=1)
-		self.main_frame.columnconfigure(1, weight=0)
+		self.columnconfigure(0, weight=1)
+		self.columnconfigure(1, weight=0)
 
 		self._create_label(label_text)
 		self._create_number_selector(min_value, max_value, increment, default_value)
 		
 	def _create_label (self, label_text):
-		label = ttk.Label(self.main_frame, text=label_text)
+		label = ttk.Label(self, text=label_text)
 		label.grid(column=0, row=0, sticky="w")
 
 	def _create_number_selector (self, min_value, max_value, increment, default_value):
-		self.spinbox = tk.Spinbox(self.main_frame, from_=min_value, to=max_value, increment=increment, wrap=False, justify=tk.RIGHT, width=8)
+		self.spinbox = tk.Spinbox(self, from_=min_value, to=max_value, increment=increment, wrap=False, justify=tk.RIGHT, width=8)
 		set_spinbox_value(self.spinbox, default_value)
 		self.spinbox.grid(column=1, row=0, sticky="e")
 
-class StartStopButton:
+class StartStopButton (tk.Button):
 	def __init__ (self, parent, row, logger):
 		self.logger = logger
 
 		self.measure_is_started = tk.BooleanVar(value=False)
-		self.button_text = tk.StringVar(value="Commencer")
+		self.text = tk.StringVar(value="Commencer")
 
-		self.button = tk.Button(parent, textvariable=self.button_text, command=self._on_press, background="#23C552", activebackground="#13B542")
-		self.button.grid(column=0, row=row, sticky="nsew", padx=10, pady=10)
+		super().__init__(parent, textvariable=self.text, command=self._on_press, background="#23C552", activebackground="#13B542")
+		self.grid(column=0, row=row, sticky="nsew", padx=10, pady=10)
+
 		parent.rowconfigure(row, weight=1)
 
 	def _on_press (self):
@@ -308,25 +313,25 @@ class StartStopButton:
 
 	def _update (self):
 		if (self.measure_is_started.get() == False):
-			self.button_text.set("Commencer")
-			self.button.configure(background="#23C552", activebackground="#13B542")
+			self.text.set("Commencer")
+			self.configure(background="#23C552", activebackground="#13B542")
 		else:
-			self.button_text.set("Arrêter")
-			self.button.configure(background="#F84F31", activebackground="#E83F21")
+			self.text.set("Arrêter")
+			self.configure(background="#F84F31", activebackground="#E83F21")
 
-class VoltageRangeConfigFrame:
+class VoltageRangeConfigFrame (ttk.Frame):
 	def __init__ (self, parent, row, logger):
 		self.logger = logger
 
-		self.main_frame = tk.Frame(parent)
-		self.main_frame.grid(column=0, row=row, sticky="ew")
-		self.main_frame.columnconfigure(0, weight=1)
+		super().__init__(parent)
+		self.grid(column=0, row=row, sticky="ew")
+		self.columnconfigure(0, weight=1)
 		
 		self._create_range_mode_button(0)
-		self.amplitude_selector_frame = ValueAndUnitSelector(self.main_frame, 1, "Amplitude", 0, 10000, 0.1, 0, ("V", "Vpp", "mV", "mVpp"), 0, 5, self.logger)
-		self.bias_selector_frame = ValueAndUnitSelector(self.main_frame, 2, "Biais", -10000, 10000, 0.1, 0, ("V", "mV"), 0, 0, self.logger)
-		self.minimum_selector_frame = ValueAndUnitSelector(self.main_frame, 1, "Min.", -10000, 10000, 0.1, 0, ("V", "mV"), 0, 5, self.logger)
-		self.maximum_selector_frame = ValueAndUnitSelector(self.main_frame, 2, "Max.", -10000, 10000, 0.1, 0, ("V", "mV"), 0, 0, self.logger)
+		self.amplitude_selector_frame = ValueAndUnitSelector(self, 1, "Amplitude", 0, 10000, 0.1, 0, ("V", "Vpp", "mV", "mVpp"), 0, 5, self.logger)
+		self.bias_selector_frame = ValueAndUnitSelector(self, 2, "Biais", -10000, 10000, 0.1, 0, ("V", "mV"), 0, 0, self.logger)
+		self.minimum_selector_frame = ValueAndUnitSelector(self, 1, "Min.", -10000, 10000, 0.1, 0, ("V", "mV"), 0, 5, self.logger)
+		self.maximum_selector_frame = ValueAndUnitSelector(self, 2, "Max.", -10000, 10000, 0.1, 0, ("V", "mV"), 0, 0, self.logger)
 	
 		self._update_frame_visibility()
 
@@ -334,7 +339,7 @@ class VoltageRangeConfigFrame:
 		self.range_mode_button_text = tk.StringVar()
 		self.range_mode_is_min_max_selected = tk.BooleanVar(value=False)
 
-		self.range_mode_button = tk.Button(self.main_frame, textvariable=self.range_mode_button_text, command=self._on_range_mode_button_press)
+		self.range_mode_button = tk.Button(self, textvariable=self.range_mode_button_text, command=self._on_range_mode_button_press)
 		self.range_mode_button.grid(column=0, columnspan=3, row=row)
 		self._update_range_mode_button()
 	
