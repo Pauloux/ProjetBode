@@ -1,9 +1,7 @@
-# À faire
-# Mettre le self.logger = logger au début du __init__
-# Utiliser le ListSelector dans la sélection des instruments ?
-
 import tkinter as tk
 from tkinter import ttk
+
+from instruments.visa_manager import VISAManager
 
 class LeftPanel (ttk.Frame):
 	def __init__ (self, parent, icon, logger):
@@ -17,8 +15,8 @@ class LeftPanel (ttk.Frame):
 	
 	def _create_layout (self):
 		self._create_title(0, "Instruments")
-		self.generator_frame = InstrumentConfigFrame(self, 1, "Générateur", ("COM0", "COM1", "COM2", "COM3"), ("Argilent 33120A", "RIGOL DG1022"), self.icon, self.logger)
-		self.oscilloscope_frame = InstrumentConfigFrame(self, 2, "Oscilloscope", ("COM0", "COM1", "COM2", "COM3"), ("RIGOL DS1074Z", "???"), self.icon, self.logger)
+		self.generator_frame = InstrumentConfigFrame(self, 1, "Générateur", ("Argilent 33120A", "RIGOL DG1022"), self.icon, self.logger)
+		self.oscilloscope_frame = InstrumentConfigFrame(self, 2, "Oscilloscope", ("RIGOL DS1074Z", ), self.icon, self.logger)
 
 		self._create_title(3, "Signal")
 		self.signal_shape_frame = ListSelector(self, 4, "Forme", ("Sinus", "Carré"), self.logger)
@@ -159,7 +157,7 @@ class FrequencySweepFrame (ttk.Frame):
 		self._update_selectors_display()
 
 class InstrumentConfigFrame (ttk.Frame):
-	def __init__ (self, parent, row, label_text, port_values, model_values, icon, logger):
+	def __init__ (self, parent, row, label_text, model_values, icon, logger):
 		self.logger = logger
 		self.icon = icon
 		self.label_text = label_text
@@ -174,21 +172,50 @@ class InstrumentConfigFrame (ttk.Frame):
 		self._create_label(label_text)
 		self._create_refresh_button()
 		self._create_status_icon()
-		self.port_selector = self._create_list_selector(1, port_values, 5)
-		self.model_selector = self._create_list_selector(2, model_values, 0)
+		self.port_selector = self._create_list_selector(1, (), True, 5)
+		self.model_selector = self._create_list_selector(2, model_values, False, 0)
 
-	def _create_list_selector (self, row, values , pady):
+	def _create_list_selector (self, row, values, update_port_on_click, pady):
 		combobox = ttk.Combobox(self, values=values, width=15, justify=tk.LEFT, state="readonly")
-		combobox.current(0)
-		combobox.bind("<<ComboboxSelected>>", clear_selection)
+		combobox.bind("<<ComboboxSelected>>", self._on_list_selector_selection)
+
+		if (values != ()):
+			combobox.current(0)
+
+		if (update_port_on_click == True):
+			combobox.configure(postcommand=self._on_port_selector_entry)
+
 		combobox.grid(column=0, columnspan=3, row=row, sticky="e", pady=pady)
 
 		return combobox
 	
+	def set_port_list_selector_values (self, values):
+		self.port_selector.configure(values=values)
+		if (self.port_selector.get() == ""):
+			self.port_selector.current(0)
+
+		self._update_port_selector_width(values)
+	
+	def _get_max_string_length (self, values):
+		max_length = 0
+		for value in values:
+			current_len = len(value)
+			if (current_len > max_length):
+				max_length = current_len
+
+		return max_length
+	
+	def _update_port_selector_width (self, values):
+		max_length = self._get_max_string_length(values)
+		if (max_length < 15):
+			max_length = 15
+
+		self.port_selector.configure(width = max_length + 2)
+	
 	def _create_status_icon (self):
 		self.status_icon = ttk.Label(self, image=self.icon["OK"])
 		self.status_icon.grid(column=2, row=0, sticky="e")
-		self._set_status_icon(False)
+		self.set_status_icon(False)
 
 	def _create_label(self, label_text):
 		label = ttk.Label(self, text=label_text)
@@ -201,16 +228,47 @@ class InstrumentConfigFrame (ttk.Frame):
 		self.refresh_button.grid(column=1, row=0, sticky="e", padx=5)
 	
 	def _on_refresh_button_press (self):
-		self.status_is_OK.set(not self.status_is_OK.get())
-		self.logger.debug(f"[{self.label_text}]status_is_OK set to {self.status_is_OK.get()}")
+		self._send_callback_update_instrument()
 
-		self._set_status_icon(self.status_is_OK.get())
+	def _on_port_selector_entry (self):
+		self._send_callback_get_port_list()
 	
-	def _set_status_icon (self, status_is_OK):
+	def _on_list_selector_selection (self, event):
+		clear_selection(event)
+		self._send_callback_update_instrument()
+	
+	def set_status_icon (self, status_is_OK):
 		if (status_is_OK == True):
 			self.status_icon.configure(image=self.icon["OK"])
 		else:
 			self.status_icon.configure(image=self.icon["error"])
+	
+	def trigger_callback_get_port_list (self):
+		self._send_callback_get_port_list()
+
+	def set_callback_get_port_list (self, callback_function):
+		self.callback_get_port_list = callback_function
+	
+	def _send_callback_get_port_list (self):
+		self.callback_get_port_list()
+
+	def set_callback_update_instrument (self, callback_function):
+		self.callback_update_instrument = callback_function
+	
+	def _send_callback_update_instrument (self):
+		port = self._get_port()
+		model = self._get_model()
+
+		self.callback_update_instrument(
+			port = port,
+			model = model
+		)
+
+	def _get_port (self):
+		return self.port_selector.get()
+	
+	def _get_model (self):
+		return self.model_selector.get()
 
 class ValueAndUnitSelector (ttk.Frame):
 	def __init__ (self, parent, row, label_text, spinbox_min, spinbox_max, spinbox_increment, spinbox_default_value, combobox_values, combobox_default_index, pady, logger):
@@ -374,3 +432,4 @@ def set_spinbox_value (widget, value):
 
 def clear_selection (event):
 	event.widget.selection_clear()
+	event.widget.master.focus()	# for Windows
