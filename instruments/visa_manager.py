@@ -17,7 +17,16 @@ class VISAManager:
 	def get_relevant_ports (self):
 		ports = self.rm.list_resources()
 
-		return ports
+		relevant_ports = []
+
+		for port in ports:
+			if "USB" in port:
+				relevant_ports.append(port)
+
+		if len(relevant_ports) == 0:
+			relevant_ports.append("No port detected")
+
+		return relevant_ports
 	
 	def set_generator (self, model, port):
 		if (model == "Argilent 33120A"):
