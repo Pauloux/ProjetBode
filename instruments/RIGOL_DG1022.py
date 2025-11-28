@@ -23,13 +23,12 @@ class RIGOL_DG1022:
 		for read_attempt in range (self.number_of_query_attempt):
 			try:
 				response = self.instr.read()
-				self.logger.debug(f"Successfully read: {response}")
+				self.logger.debug(f"Successfully read ({read_attempt + 1}/{self.number_of_query_attempt}): {response}")
 				return response
 			except Exception as e:
 				self.logger.error(f"Error while reading ({read_attempt + 1}/{self.number_of_query_attempt}), error : {e}")
 
 		return None
-		
 
 	def _send_query (self, command):
 		write_success = self._write(command)
