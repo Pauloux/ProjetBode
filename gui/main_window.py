@@ -21,6 +21,25 @@ supported_instruments = {
 	}
 }
 
+##### #####
+#
+# To use mock, uncomment the following lines (import and supported_instruments)
+#
+##### #####
+
+#from instruments.mock.visa_manager import VISAManager
+#from instruments.mock.instrument import InstrumentMock
+#
+#supported_instruments = {
+#	"generator" : {
+#		"Argilent 33120A" : InstrumentMock,
+#		"RIGOL DG1022" : InstrumentMock
+#	},
+#	"oscilloscope" : {
+#		"RIGOL DS1074Z" : InstrumentMock
+#	}
+#}
+
 class MainWindow(tk.Tk):
 	def __init__ (self, logger):
 		super().__init__()
