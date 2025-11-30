@@ -1,26 +1,28 @@
 import tkinter as tk
 from tkinter import ttk
 
-from instruments.visa_manager import VISAManager
-
 class LeftPanel (ttk.Frame):
-	def __init__ (self, parent, icon, logger):
+	def __init__ (self, parent, supported_instruments, icon, logger):
 		super().__init__(parent, borderwidth=5, relief="ridge")
 		self.grid(column=0, row=0, sticky="nsew")
 		self.columnconfigure(0, weight=1)
 
+		self.supported_instruments = supported_instruments
 		self.logger = logger
 		self.icon = icon
 		self._create_layout()
 	
 	def _create_layout (self):
 		self._create_title(0, "Instruments")
-		self.generator_frame = InstrumentConfigFrame(self, 1, "Générateur", ("Argilent 33120A", "RIGOL DG1022"), self.icon, self.logger)
-		self.oscilloscope_frame = InstrumentConfigFrame(self, 2, "Oscilloscope", ("RIGOL DS1074Z", ), self.icon, self.logger)
+		self.refresh_instrument_status_button = self._create_refresh_instrument_button(self, 1)
+		generator_list = list(self.supported_instruments["generator"].keys())
+		oscilloscope_list = list(self.supported_instruments["oscilloscope"].keys())
+		self.generator_frame = InstrumentConfigFrame(self, 2, "Générateur", generator_list, self._update_instruments, self.icon, self.logger)
+		self.oscilloscope_frame = InstrumentConfigFrame(self, 3, "Oscilloscope", oscilloscope_list, self._update_instruments, self.icon, self.logger)
 
-		self._create_title(3, "Signal")
-		self.signal_shape_frame = ListSelector(self, 4, "Forme", ("Sinus", "Carré"), self.logger)
-		self.voltage_range_selector_frame = VoltageRangeConfigFrame(self, 5, self.logger)
+		self._create_title(4, "Signal")
+		self.signal_shape_frame = ListSelector(self, 5, "Forme", ("Sinus", "Carré"), self.logger)
+		self.voltage_range_selector_frame = VoltageRangeConfigFrame(self, 6, self.logger)
 
 		self._create_title(7, "Fréquence")
 		self.min_frequency_frame = ValueAndUnitSelector(self, 8, "Fréquence min.", 1, 10000,  1, 100, ("mHz", "Hz", "kHz", "MHz"), 1, 5, self.logger)
@@ -44,6 +46,18 @@ class LeftPanel (ttk.Frame):
 		title_frame.columnconfigure(0, weight=1)
 		title_frame.columnconfigure(1, weight=0)
 		title_frame.columnconfigure(2, weight=1)	
+	
+	def _create_refresh_instrument_button (self, parent, row):
+		button = tk.Button(parent, image=self.icon["refresh"], command=self._update_instruments)
+		button.grid(column=0, row=row, sticky="e", padx=5)
+
+		return button
+	
+	def set_callback_update_instruments (self, callback_function):
+		self.callback_update_instruments = callback_function
+	
+	def _update_instruments (self):
+		self.callback_update_instruments()
 		
 class FrequencySweepFrame (ttk.Frame):
 	def __init__ (self, parent, row, combobox_values, combobox_default_index, logger):
@@ -157,7 +171,8 @@ class FrequencySweepFrame (ttk.Frame):
 		self._update_selectors_display()
 
 class InstrumentConfigFrame (ttk.Frame):
-	def __init__ (self, parent, row, label_text, model_values, icon, logger):
+	def __init__ (self, parent, row, label_text, model_values, func_update_instruments_status, icon, logger):
+		self.func_update_instruments_status = func_update_instruments_status
 		self.logger = logger
 		self.icon = icon
 		self.label_text = label_text
@@ -170,7 +185,6 @@ class InstrumentConfigFrame (ttk.Frame):
 		self.columnconfigure(2, weight=0)
 
 		self._create_label(label_text)
-		self._create_refresh_button()
 		self._create_status_icon()
 		self.port_selector = self._create_list_selector(1, (), True, 5)
 		self.model_selector = self._create_list_selector(2, model_values, False, 0)
@@ -221,53 +235,39 @@ class InstrumentConfigFrame (ttk.Frame):
 		label = ttk.Label(self, text=label_text)
 		label.grid(column=0, row=0, sticky="w")
 	
-	def _create_refresh_button (self):
-		self.status_is_OK = tk.BooleanVar(value = False)
-
-		self.refresh_button = tk.Button(self, image=self.icon["refresh"], command=self._on_refresh_button_press)
-		self.refresh_button.grid(column=1, row=0, sticky="e", padx=5)
-	
-	def _on_refresh_button_press (self):
-		self._send_callback_update_instrument()
-
 	def _on_port_selector_entry (self):
 		self._send_callback_get_port_list()
 	
 	def _on_list_selector_selection (self, event):
 		clear_selection(event)
-		self._send_callback_update_instrument()
+		self._send_callback_set_instrument()
+		self.func_update_instruments_status()
 	
 	def set_status_icon (self, status_is_OK):
 		if (status_is_OK == True):
 			self.status_icon.configure(image=self.icon["OK"])
 		else:
 			self.status_icon.configure(image=self.icon["error"])
-	
-	def trigger_callback_get_port_list (self):
-		self._send_callback_get_port_list()
 
 	def set_callback_get_port_list (self, callback_function):
 		self.callback_get_port_list = callback_function
 	
+	def set_callback_set_instrument (self, callback_function):
+		self.callback_set_instrument = callback_function
+	
+	def _send_callback_set_instrument (self):
+		model = self._get_selected_model()
+		port = self._get_selected_port()
+
+		self.callback_set_instrument(model, port)
+
 	def _send_callback_get_port_list (self):
 		self.callback_get_port_list()
-
-	def set_callback_update_instrument (self, callback_function):
-		self.callback_update_instrument = callback_function
 	
-	def _send_callback_update_instrument (self):
-		port = self._get_port()
-		model = self._get_model()
-
-		self.callback_update_instrument(
-			port = port,
-			model = model
-		)
-
-	def _get_port (self):
+	def _get_selected_port (self):
 		return self.port_selector.get()
 	
-	def _get_model (self):
+	def _get_selected_model (self):
 		return self.model_selector.get()
 
 class ValueAndUnitSelector (ttk.Frame):

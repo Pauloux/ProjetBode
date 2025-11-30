@@ -3,11 +3,22 @@ import pyvisa
 import time
 
 class RIGOL_DS1074Z:
-	def __init__ (self, visa_resource, timeout_ms, number_of_query_attempt, logger):
+	def __init__ (self, visa_resource, port, timeout_ms, number_of_query_attempt, logger):
 		self.instr = visa_resource
+		self.port = port
 		self.instr.timeout = timeout_ms
 		self.number_of_query_attempt = number_of_query_attempt
 		self.logger = logger
+	
+	def get_port (self):
+		return self.port
+	
+	def close (self):
+		try:
+			self.instr.close()
+			self.logger.debug("Successfuly closed resource")
+		except Exception as e:
+			self.logger.debug(f"Failed to close resource, error {e}")
 	
 	def _write (self, command):
 		try:
@@ -37,7 +48,6 @@ class RIGOL_DS1074Z:
 
 		return self._read()
 
-	
 	def is_responding (self):
 		response = self.get_IDN()
 		if (response == None):

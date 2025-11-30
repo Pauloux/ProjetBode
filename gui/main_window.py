@@ -5,7 +5,21 @@ import pyvisa
 from gui.graph_panel import GraphPanel
 from gui.left_panel import LeftPanel
 from gui.menu_bar import MenuBar
+
 from instruments.visa_manager import VISAManager
+from instruments.Argilent_33120A import Argilent_33120A
+from instruments.RIGOL_DG1022 import RIGOL_DG1022
+from instruments.RIGOL_DS1074Z import RIGOL_DS1074Z
+
+supported_instruments = {
+	"generator" : {
+		"Argilent 33120A" : Argilent_33120A,
+		"RIGOL DG1022" : RIGOL_DG1022
+	},
+	"oscilloscope" : {
+		"RIGOL DS1074Z" : RIGOL_DS1074Z
+	}
+}
 
 class MainWindow(tk.Tk):
 	def __init__ (self, logger):
@@ -17,7 +31,7 @@ class MainWindow(tk.Tk):
 			"OK" : tk.PhotoImage(file=r"icons/OK_icon.png"),
 			"error" : tk.PhotoImage(file=r"icons/Error_icon.png")
 		}
-		self.visa_manager = VISAManager(self.logger)
+		self.visa_manager = VISAManager(supported_instruments, self.logger)
 		
 		self._create_window()
 
@@ -26,12 +40,11 @@ class MainWindow(tk.Tk):
 		self._create_main_interface()
 
 		self.menu_bar.trigger_callback_graph_display()
-		self.left_panel.generator_frame.trigger_callback_get_port_list()
-
+	
 	def _create_main_interface (self):
 		self._create_main_paned()
 
-		self.left_panel = LeftPanel(self, self.icon, self.logger)
+		self.left_panel = LeftPanel(self, supported_instruments, self.icon, self.logger)
 		self.graph_panel = GraphPanel(self, self.logger)
 
 		self._finish_init_main_paned()
@@ -41,9 +54,11 @@ class MainWindow(tk.Tk):
 	def _init_generator_and_oscilloscope_callback (self):
 		self.left_panel.generator_frame.set_callback_get_port_list(self._on_callback_get_port_list)
 		self.left_panel.oscilloscope_frame.set_callback_get_port_list(self._on_callback_get_port_list)
-
-		self.left_panel.generator_frame.set_callback_update_instrument(self._on_callback_update_generator)
-		self.left_panel.oscilloscope_frame.set_callback_update_instrument(self._on_callback_update_oscilloscope)
+	
+		self.left_panel.set_callback_update_instruments(self._on_callback_update_instruments_status)
+		
+		self.left_panel.generator_frame.set_callback_set_instrument(self._on_callback_set_instrument)
+		self.left_panel.oscilloscope_frame.set_callback_set_instrument(self._on_callback_set_instrument)
 	
 	def _update_generator_and_oscilloscope_port_list (self):
 		ports = self.visa_manager.get_relevant_ports()
@@ -54,26 +69,15 @@ class MainWindow(tk.Tk):
 	def _on_callback_get_port_list (self):
 		self.logger.debug("Updating the available port list")
 		self._update_generator_and_oscilloscope_port_list()
-
-	def _on_callback_update_generator (self, model, port):
-		self.logger.debug("Updating the generator status")
-
-		self.visa_manager.set_generator(model, port)
-
-		if (self.visa_manager.generator_is_responding() == True):
-			self.left_panel.generator_frame.set_status_icon(True)
-		else:
-			self.left_panel.generator_frame.set_status_icon(False)
-
-	def _on_callback_update_oscilloscope (self, model, port):
-		self.logger.debug("Updating the oscilloscope status")
-
-		self.visa_manager.set_oscilloscope(model, port)
-
-		if (self.visa_manager.oscilloscope_is_responding() == True):
-			self.left_panel.oscilloscope_frame.set_status_icon(True)
-		else:
-			self.left_panel.oscilloscope_frame.set_status_icon(False)
+	
+	def _on_callback_set_instrument (self, model, port):
+		self.visa_manager.set_instrument(model, port)
+		
+	def _on_callback_update_instruments_status (self):
+		self.logger.debug("Updating instrument status")
+	
+		self.left_panel.generator_frame.set_status_icon(self.visa_manager.generator_is_responding())
+		self.left_panel.oscilloscope_frame.set_status_icon(self.visa_manager.oscilloscope_is_responding())
 
 	def _create_main_paned (self):
 		self.main_paned = tk.PanedWindow(self, orient="horizontal")
