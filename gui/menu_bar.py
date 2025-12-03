@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 
 class MenuBar (tk.Menu):
+	##### Creation of the menu on the top bar #####
 	def __init__ (self, parent, logger):
 		super().__init__(parent)
 
@@ -48,14 +49,7 @@ class MenuBar (tk.Menu):
 		self.number_of_graph.trace_add("write", lambda *args: self.logger.debug(f"number_of_graph set to {self.number_of_graph.get()}"))
 		self.show_debug.trace_add("write", lambda *args: self.logger.debug(f"show_debug set to {self.show_debug.get()}"))
 	
-	def _update_state_number_of_graph (self):
-		if (self.show_gain.get() == True and self.show_phase.get() == True):
-			self.display_menu.entryconfigure("1 graphique", state=tk.NORMAL)
-			self.display_menu.entryconfigure("2 graphiques", state=tk.NORMAL)
-		else:
-			self.display_menu.entryconfigure("1 graphique", state=tk.DISABLED)
-			self.display_menu.entryconfigure("2 graphiques", state=tk.DISABLED)
-
+	##### Interaction #####
 	def _on_gain_phase_change (self, *args):
 		"""
 		Allows to select gain and/or phase to display, but prevents both of them being off.
@@ -90,6 +84,28 @@ class MenuBar (tk.Menu):
 
 		self._send_callback_graph_display()
 	
+	def _update_state_number_of_graph (self):
+		if (self.show_gain.get() == True and self.show_phase.get() == True):
+			self.display_menu.entryconfigure("1 graphique", state=tk.NORMAL)
+			self.display_menu.entryconfigure("2 graphiques", state=tk.NORMAL)
+		else:
+			self.display_menu.entryconfigure("1 graphique", state=tk.DISABLED)
+			self.display_menu.entryconfigure("2 graphiques", state=tk.DISABLED)
+
+	##### Callback #####
+	def set_callback_graph_display (self, callback_function):
+		self.callback_graph_display = callback_function
+
+	def _send_callback_graph_display (self):
+		self.callback_graph_display(
+			show_gain = self._is_show_gain_selected(),
+			show_phase = self._is_show_phase_selected(),
+			show_on_same_graph = self._is_show_1_graph_selected()
+		)
+
+	def trigger_callback_graph_display (self):
+		self._send_callback_graph_display()
+
 	def _is_show_gain_selected (self):
 		return self.show_gain.get()
 	
@@ -99,15 +115,3 @@ class MenuBar (tk.Menu):
 	def _is_show_1_graph_selected (self):
 		return self.show_one_graph.get()
 	
-	def trigger_callback_graph_display (self):
-		self._send_callback_graph_display()
-	
-	def _send_callback_graph_display (self):
-		self.callback_graph_display(
-			show_gain = self._is_show_gain_selected(),
-			show_phase = self._is_show_phase_selected(),
-			show_on_same_graph = self._is_show_1_graph_selected()
-		)
-
-	def set_callback_graph_display (self, callback_function):
-		self.callback_graph_display = callback_function

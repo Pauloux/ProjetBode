@@ -1,4 +1,4 @@
-import tkinter as tk
+returnimport tkinter as tk
 from tkinter import ttk
 import pyvisa
 
@@ -22,9 +22,7 @@ supported_instruments = {
 }
 
 ##### #####
-#
 # To use mock, uncomment the following lines (import and supported_instruments)
-#
 ##### #####
 
 #from instruments.mock.visa_manager import VISAManager
@@ -41,14 +39,15 @@ supported_instruments = {
 #}
 
 class MainWindow(tk.Tk):
+	##### Creation of the window #####
 	def __init__ (self, logger):
 		super().__init__()
 
 		self.logger = logger
 		self.icon = {
-			"refresh" : tk.PhotoImage(file=r"icons/Refresh_icon.png"),
-			"OK" : tk.PhotoImage(file=r"icons/OK_icon.png"),
-			"error" : tk.PhotoImage(file=r"icons/Error_icon.png")
+			"refresh" : tk.PhotoImage(file=r"icons/Refresh.png"),
+			"OK" : tk.PhotoImage(file=r"icons/OK.png"),
+			"error" : tk.PhotoImage(file=r"icons/Error.png")
 		}
 		self.visa_manager = VISAManager(supported_instruments, self.logger)
 		
@@ -69,34 +68,6 @@ class MainWindow(tk.Tk):
 		self._finish_init_main_paned()
 	
 		self._init_generator_and_oscilloscope_callback()
-
-	def _init_generator_and_oscilloscope_callback (self):
-		self.left_panel.generator_frame.set_callback_get_port_list(self._on_callback_get_port_list)
-		self.left_panel.oscilloscope_frame.set_callback_get_port_list(self._on_callback_get_port_list)
-	
-		self.left_panel.set_callback_update_instruments(self._on_callback_update_instruments_status)
-		
-		self.left_panel.generator_frame.set_callback_set_instrument(self._on_callback_set_instrument)
-		self.left_panel.oscilloscope_frame.set_callback_set_instrument(self._on_callback_set_instrument)
-	
-	def _update_generator_and_oscilloscope_port_list (self):
-		ports = self.visa_manager.get_relevant_ports()
-
-		self.left_panel.generator_frame.set_port_list_selector_values(ports)
-		self.left_panel.oscilloscope_frame.set_port_list_selector_values(ports)
-	
-	def _on_callback_get_port_list (self):
-		self.logger.debug("Updating the available port list")
-		self._update_generator_and_oscilloscope_port_list()
-	
-	def _on_callback_set_instrument (self, model, port):
-		self.visa_manager.set_instrument(model, port)
-		
-	def _on_callback_update_instruments_status (self):
-		self.logger.debug("Updating instrument status")
-	
-		self.left_panel.generator_frame.set_status_icon(self.visa_manager.generator_is_responding())
-		self.left_panel.oscilloscope_frame.set_status_icon(self.visa_manager.oscilloscope_is_responding())
 
 	def _create_main_paned (self):
 		self.main_paned = tk.PanedWindow(self, orient="horizontal")
@@ -126,6 +97,37 @@ class MainWindow(tk.Tk):
 
 		self.menu_bar.set_callback_graph_display(self._on_callback_graph_display)
 	
+	##### Callback #####
+	### Instruments ###
+	def _init_generator_and_oscilloscope_callback (self):
+		self.left_panel.generator_frame.set_callback_get_port_list(self._on_callback_get_port_list)
+		self.left_panel.oscilloscope_frame.set_callback_get_port_list(self._on_callback_get_port_list)
+	
+		self.left_panel.set_callback_update_instruments(self._on_callback_update_instruments_status)
+		
+		self.left_panel.generator_frame.set_callback_set_instrument(self._on_callback_set_instrument)
+		self.left_panel.oscilloscope_frame.set_callback_set_instrument(self._on_callback_set_instrument)
+	
+	def _on_callback_get_port_list (self):
+		self.logger.debug("Updating the available port list")
+		self._update_generator_and_oscilloscope_port_list()
+		
+	def _on_callback_update_instruments_status (self):
+		self.logger.debug("Updating instrument status")
+	
+		self.left_panel.generator_frame.set_status_icon(self.visa_manager.generator_is_responding())
+		self.left_panel.oscilloscope_frame.set_status_icon(self.visa_manager.oscilloscope_is_responding())
+
+	def _on_callback_set_instrument (self, model, port):
+		self.visa_manager.set_instrument(model, port)
+
+	def _update_generator_and_oscilloscope_port_list (self):
+		ports = self.visa_manager.get_relevant_ports()
+
+		self.left_panel.generator_frame.set_port_list_selector_values(ports)
+		self.left_panel.oscilloscope_frame.set_port_list_selector_values(ports)
+	
+	### Graph ###
 	def _on_callback_graph_display (self, show_gain, show_phase, show_on_same_graph):
 		if ((show_gain == True) and (show_phase == True) and (show_on_same_graph == True)):
 			self.logger.debug("Activate display both gain and phase on the same graph")

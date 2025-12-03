@@ -1,7 +1,10 @@
 import tkinter as tk
 from tkinter import ttk
 
+import numpy as np
+
 class LeftPanel (ttk.Frame):
+	##### Left Panel creation #####
 	def __init__ (self, parent, supported_instruments, icon, logger):
 		super().__init__(parent, borderwidth=5, relief="ridge")
 		self.grid(column=0, row=0, sticky="nsew")
@@ -11,6 +14,7 @@ class LeftPanel (ttk.Frame):
 		self.logger = logger
 		self.icon = icon
 		self._create_layout()
+		self._create_callbacks()
 	
 	def _create_layout (self):
 		self._create_title(0, "Instruments")
@@ -27,14 +31,14 @@ class LeftPanel (ttk.Frame):
 		self._create_title(7, "Fréquence")
 		self.min_frequency_frame = ValueAndUnitSelector(self, 8, "Fréquence min.", 1, 10000,  1, 100, ("mHz", "Hz", "kHz", "MHz"), 1, 5, self.logger)
 		self.max_frequency_frame = ValueAndUnitSelector(self, 9, "Fréquence max.", 1, 10000,  1, 10, ("mHz", "Hz", "kHz", "MHz"), 2, 0, self.logger)
-		self.frequency_sweep = FrequencySweepFrame(self, 10, ("mHz", "Hz", "kHz", "MHz"), 1, self.logger)
+		self.frequency_sweep_frame = FrequencySweepFrame(self, 10, ("mHz", "Hz", "kHz", "MHz"), 1, self.logger)
 
 		self._create_title(11, "Acquisition")
 		self.mean_samples = NumberSelector(self, 12, "Moyenne", 1, 1000, 1, 1, self.logger)
 		self.interval_between_points = ValueAndUnitSelector(self, 13, "Intervalle points", 0.1, 10000,  0.1, 1, ("ms", "s"), 1, 5, self.logger)
 		
 		self.rowconfigure(14, weight=1)	# To automatically adapt the height of the button bellow
-		self.start_stop_button = StartStopButton(self, 15, self.logger)
+		self.start_stop_button = StartStopButton(self, 15, self.get_acquisition_parameters, self.logger)
 
 	def _create_title (self, row, title):
 		title_frame = ttk.Frame(self)
@@ -47,6 +51,10 @@ class LeftPanel (ttk.Frame):
 		title_frame.columnconfigure(1, weight=0)
 		title_frame.columnconfigure(2, weight=1)	
 	
+	def _create_callbacks (self):
+		self.start_stop_button.set_callback_on_button_press(self._on_callback_start_stop_button_press)
+
+	##### Refresh instrument button #####
 	def _create_refresh_instrument_button (self, parent, row):
 		button = tk.Button(parent, image=self.icon["refresh"], command=self._update_instruments)
 		button.grid(column=0, row=row, sticky="e", padx=5)
@@ -58,8 +66,201 @@ class LeftPanel (ttk.Frame):
 	
 	def _update_instruments (self):
 		self.callback_update_instruments()
+	
+	##### Start and stop acquisition button ####
+	def _on_callback_start_stop_button_press (self):
+		measure_is_started = self.start_stop_button.get_measure_is_started()
+
+		# Stop the measure if it is running
+		if measure_is_started:
+			self.start_stop_button.set_measure_is_started(False)
+		else:
+			acquisition_parameters = self.get_acquisition_parameters()
+			if acquisition_parameters == None:
+				return
+
+			self.start_stop_button.set_measure_is_started(True)
+			print("Starting acquisition...")
+
+	##### Get acquisition parameters #####
+	def get_acquisition_parameters (self):
+		try:
+			return self._get_formatted_acquisition_parameters()
+		except ValueError as e:
+			tk.messagebox.showerror(message=e)
+			return None
+
+	def _get_formatted_acquisition_parameters (self):
+		signal_shape = self.signal_shape_frame.get_value()
+
+		amplitude_bias_min_max_value_dict = self.voltage_range_selector_frame.get_amplitude_bias_min_max_value()
+
+		freq_points = self._get_freq_points()
+
+		mean_samples = self._get_mean_samples_verified()
+
+		interval_between_points = self._get_true_interval_between_points()			
+	
+		return {
+			"signal_shape" : signal_shape,
+			"amplitude" : amplitude_bias_min_max_value_dict,
+			"freq_points" : freq_points,
+			"mean_samples" : mean_samples,
+			"interval_between_points" : interval_between_points
+		}
+
+	### Frequency points ###
+	def _get_freq_points (self):
+		freq_min = self._get_true_min_freq()
+		freq_max = self._get_true_max_freq()
+
+		if freq_min >= freq_max:
+			raise ValueError("La fréquence minimale doit être strictement inférieure à la fréquence maximale")
+
+		sweep_type = self.frequency_sweep_frame.get_sweep_type()
+		if sweep_type == "Linéaire":
+			number_of_points_spacing_is_selected = self.frequency_sweep_frame.is_number_of_points_spacing_selected()
+			if number_of_points_spacing_is_selected:
+				return self._get_freq_points_linear_number_of_points(freq_min, freq_max)
+
+			else:
+				return self._get_freq_points_linear_spacing(freq_min, freq_max)
+		# Logarithmic if not linear
+		else:
+			return self._get_freq_points_logarithmic(freq_min, freq_max)	
+	
+	def _get_freq_points_linear_number_of_points (self, freq_min, freq_max):
+		number_of_points = self.frequency_sweep_frame.get_number_of_points()
+
+		if not number_is_in_range(number_of_points, 2, 100000):
+			raise ValueError("Le nombre de points en fréquence doit être compris entre 2 et 100 000")
+
+		freq_points = np.linspace(freq_min, freq_max, number_of_points)
+		return freq_points.tolist()
 		
+	def _get_freq_points_linear_spacing (self, freq_min, freq_max):
+		freq_step = self._get_true_freq_spacing()
+
+		freq_points = []
+		freq = freq_min
+		while freq <= freq_max:
+			freq_points.append(freq)
+			freq += freq_step
+
+		if len (freq_points) < 2:
+			raise ValueError("Il doit y avoir au moins 2 points en fréquence au total")
+
+		return freq_points
+	
+	def _get_freq_points_logarithmic (self, freq_min, freq_max):
+		number_of_points_per_decade = self.frequency_sweep_frame.get_number_of_points()
+
+		if not number_is_in_range(number_of_points_per_decade, 1, 10000):
+			raise ValueError("Le nombre de points par décade doit être compris entre 1 et 10 000")
+
+		number_of_decade = np.log10(freq_max) - np.log10(freq_min)
+		number_of_points_total = int(number_of_points_per_decade * number_of_decade)
+	
+		if number_of_points_total < 2:
+			raise ValueError("Il doit y avoir au moins 2 points en fréquence au total")
+		
+		freq_points = np.logspace(np.log10(freq_min), np.log10(freq_max), number_of_points_total)
+		return freq_points.tolist()
+	
+	def _get_true_min_freq (self):
+		try:
+			value = self.min_frequency_frame.get_value()
+		except ValueError as e:
+			raise ValueError(f"Fréquence minimale : {str(e)}")
+
+		if not number_is_in_range(value, 0.1, 10000):
+			raise ValueError("La fréquence minimale doit être comprise entre 0.1 et 10000 (indépendamment de l'unité)")
+
+		unit = self.min_frequency_frame.get_unit()
+		true_freq = self._get_frequency_in_Hz(value, unit)
+
+		return true_freq
+
+	def _get_true_max_freq (self):
+		try:
+			value = self.max_frequency_frame.get_value()
+		except ValueError as e:
+			raise ValueError(f"Fréquence maximale : {str(e)}")
+
+		if not number_is_in_range(value, 0.1, 10000):
+			raise ValueError("La fréquence maximale doit être comprise entre 0.1 et 10000 (indépendamment de l'unité)")
+
+		unit = self.max_frequency_frame.get_unit()
+		true_freq = self._get_frequency_in_Hz(value, unit)
+
+		return true_freq
+	
+	def _get_true_freq_spacing (self):
+		try:
+			value = self.frequency_sweep_frame.get_spacing_value()
+		except ValueError as e:
+			raise ValueError(f"Espacement des points en fréquence : {str(e)}")
+
+		print(f"true freq spacing value : {value} ({type(value)})")
+		if not number_is_in_range(value, 0.1, 10000):
+			raise ValueError("L'espacement des points en fréquence doit être compris entre 0.1 et 10000 (indépendamment de l'unité)")
+
+		unit = self.frequency_sweep_frame.get_spacing_unit()
+		true_freq = self._get_frequency_in_Hz(value, unit)
+
+		return true_freq
+
+	def _get_frequency_in_Hz (self, value, unit):
+		if unit == "mHz":
+			return value / 1000
+		if unit == "Hz":
+			return value
+		if unit == "kHz":
+			return value * 1000
+		if unit == "MHz":
+			return value * 1000000
+
+		self.logger.warning(f"Unknown unit {unit} for frequency conversion")
+		return 0
+	
+	### Time interval between points ###
+	def _get_true_interval_between_points (self):
+		try:
+			value = self.interval_between_points.get_value()
+		except ValueError as e:
+			raise ValueError(f"Intervalle de temps entre les points : {str(e)}")
+
+		if not number_is_in_range(value, 0.1, 10000):
+			raise ValueError("L'intervalle de temps entre les points doit être compris entre 0.1 et 10 000 (indépendamment de l'unité)")
+
+		unit = self.interval_between_points.get_unit()
+		true_interval = self._convert_time_in_s(value, unit)
+
+		return true_interval
+
+	def _convert_time_in_s (self, value, unit):
+		if unit == "ms":
+			return value / 1000
+		if unit == "s":
+			return value
+
+		self.logger.warning(f"Unknown unit {unit} for time conversion")
+		return 0
+
+	### Number of samples for the mean ###
+	def _get_mean_samples_verified (self):
+		try:
+			mean_samples = self.mean_samples.get_value()
+		except ValueError as e:
+			raise ValueError(f"Nombre de points de moyenne : {str(e)}")
+
+		if not number_is_in_range (mean_samples, 1, 1000):
+			raise ValueError("Le nombre de points de moyenne à prendre doit être compris entre 1 et 1 000")
+
+		return mean_samples
+
 class FrequencySweepFrame (ttk.Frame):
+	##### Frequency sweep frame creation #####
 	def __init__ (self, parent, row, combobox_values, combobox_default_index, logger):
 		self.logger = logger
 
@@ -69,6 +270,7 @@ class FrequencySweepFrame (ttk.Frame):
 
 		self._create_type_selector()
 		self._create_points_spacing_selector(combobox_values, combobox_default_index)
+		self._update_selectors_display()
 	
 	def _create_type_selector (self):
 		self.type_selector_frame = ttk.Frame(self)
@@ -77,7 +279,7 @@ class FrequencySweepFrame (ttk.Frame):
 		label = ttk.Label(self.type_selector_frame, text="Balayage")
 		label.grid(column=0, row=0, sticky="w")
 
-		self.type_selector_combobox = ttk.Combobox(self.type_selector_frame, values=("Linéaire", "Logarithmique"), width=13, justify=tk.RIGHT, state="readonly")
+		self.type_selector_combobox = ttk.Combobox(self.type_selector_frame, values=("Logarithmique", "Linéaire"), width=13, justify=tk.RIGHT, state="readonly")
 		self.type_selector_combobox.current(0)
 		self.type_selector_combobox.bind("<<ComboboxSelected>>", self._on_type_selection_change)
 		self.type_selector_combobox.grid(column=1, row=0, sticky="e")
@@ -85,6 +287,7 @@ class FrequencySweepFrame (ttk.Frame):
 		self.type_selector_frame.columnconfigure(0, weight=1)
 		self.type_selector_frame.columnconfigure(1, weight=1)
 	
+	### Points or spacing selector creation (radiobutton, value and unit) ###
 	def _create_points_spacing_selector (self, combobox_values, combobox_default_index):
 		self.radiobutton_is_points_selected = tk.BooleanVar(value=True)
 		self.radiobutton_is_points_selected.trace_add("write", lambda *args: self._update_selectors_state())
@@ -97,6 +300,7 @@ class FrequencySweepFrame (ttk.Frame):
 		self._create_spacing_frame(self.points_spacing_selector_frame, combobox_values, combobox_default_index)
 		self._update_selectors_state()
 	
+	# Number of points selector (radiobutton and value)
 	def _create_points_frame (self, parent):
 		self.points_frame = ttk.Frame(parent)
 		self.points_frame.grid(column=0, row=0, sticky="ew", pady=5)
@@ -106,7 +310,7 @@ class FrequencySweepFrame (ttk.Frame):
 		self._create_points_spinbox(self.points_frame)
 	
 	def _create_points_radiobutton (self, parent):
-		self.points_radiobutton_text = tk.StringVar(value="Points totaux")
+		self.points_radiobutton_text = tk.StringVar(value="Points par décade")
 
 		self.points_radiobutton = tk.Radiobutton(parent, textvariable=self.points_radiobutton_text, variable=self.radiobutton_is_points_selected, value=True)
 		self.points_radiobutton.grid(column=0, row=0, sticky="w")
@@ -119,6 +323,7 @@ class FrequencySweepFrame (ttk.Frame):
 		self.points_spinbox.grid(column=1, row=0, sticky="e")
 		self.points_spinbox.columnconfigure(1, weight=1)
 		
+	# Frequency spacing between points selector (radiobutton, value and unit)
 	def _create_spacing_frame (self, parent, combobox_values, combobox_default_index):
 		self.spacing_frame = ttk.Frame(parent)
 		self.spacing_frame.grid(column=0, row=2, sticky="ew")
@@ -145,6 +350,7 @@ class FrequencySweepFrame (ttk.Frame):
 		self.spacing_combobox.bind("<<ComboboxSelected>>", clear_selection)
 		self.spacing_combobox.grid(column=2, row=0, sticky="e")
 
+	##### Interaction with buttons and selectors #####
 	def _update_selectors_state (self):
 		self.logger.debug(f"radiobutton_is_points_selected set to {self.radiobutton_is_points_selected.get()}")
 		if (self.radiobutton_is_points_selected.get() == True):
@@ -157,20 +363,44 @@ class FrequencySweepFrame (ttk.Frame):
 			self.spacing_combobox.configure(state="readonly")
 
 	def _update_selectors_display (self):
-		if (self.type_selector_combobox.get() == "Linéaire"):
+		if (self.get_sweep_type() == "Linéaire"):
 			self.points_radiobutton_text.set("Points totaux")
 			self.spacing_frame.grid()
 		else:
 			self.points_radiobutton_text.set("Points par décade")
 			self.spacing_frame.grid_remove()		# Hide spacing frame
-			self.radiobutton_is_points_selected.set(True)	# Auto-select number of points
+			if not self.radiobutton_is_points_selected.get() == True:
+				self.radiobutton_is_points_selected.set(True)	# Auto-select number of points
 
 	def _on_type_selection_change (self, event):
 		clear_selection(event)
 		self.logger.debug(f"Sweep type set to {self.type_selector_combobox.get()}")
 		self._update_selectors_display()
+	
+	##### Getter #####
+	def get_sweep_type (self):
+		return self.type_selector_combobox.get()
+	
+	def is_number_of_points_spacing_selected (self):
+		return self.radiobutton_is_points_selected.get()
+	
+	def get_number_of_points (self):
+		try:
+			return int(self.points_spinbox.get())
+		except ValueError:
+			raise ValueError("Le nombre de points en fréquence doit être un entier")
+	
+	def get_spacing_value (self):
+		try:
+			return float(self.spacing_spinbox.get())
+		except ValueError as e:
+			raise ValueError(f"le nombre doit être un nombre à virgule")
+	
+	def get_spacing_unit (self):
+		return self.spacing_combobox.get()
 
 class InstrumentConfigFrame (ttk.Frame):
+	##### Instrument configuration frame creation #####
 	def __init__ (self, parent, row, label_text, model_values, func_update_instruments_status, icon, logger):
 		self.func_update_instruments_status = func_update_instruments_status
 		self.logger = logger
@@ -203,29 +433,6 @@ class InstrumentConfigFrame (ttk.Frame):
 
 		return combobox
 	
-	def set_port_list_selector_values (self, values):
-		self.port_selector.configure(values=values)
-		if (self.port_selector.get() == ""):
-			self.port_selector.current(0)
-
-		self._update_port_selector_width(values)
-	
-	def _get_max_string_length (self, values):
-		max_length = 0
-		for value in values:
-			current_len = len(value)
-			if (current_len > max_length):
-				max_length = current_len
-
-		return max_length
-	
-	def _update_port_selector_width (self, values):
-		max_length = self._get_max_string_length(values)
-		if (max_length < 15):
-			max_length = 15
-
-		self.port_selector.configure(width = max_length + 2)
-	
 	def _create_status_icon (self):
 		self.status_icon = ttk.Label(self, image=self.icon["OK"])
 		self.status_icon.grid(column=2, row=0, sticky="e")
@@ -235,6 +442,7 @@ class InstrumentConfigFrame (ttk.Frame):
 		label = ttk.Label(self, text=label_text)
 		label.grid(column=0, row=0, sticky="w")
 	
+	##### Interaction with buttons and selectors #####
 	def _on_port_selector_entry (self):
 		self._send_callback_get_port_list()
 	
@@ -242,13 +450,30 @@ class InstrumentConfigFrame (ttk.Frame):
 		clear_selection(event)
 		self._send_callback_set_instrument()
 		self.func_update_instruments_status()
-	
-	def set_status_icon (self, status_is_OK):
-		if (status_is_OK == True):
-			self.status_icon.configure(image=self.icon["OK"])
-		else:
-			self.status_icon.configure(image=self.icon["error"])
 
+	def _update_port_selector_width (self, values):
+		max_length = self._get_max_string_length(values)
+		if (max_length < 15):
+			max_length = 15
+
+		self.port_selector.configure(width = max_length + 2)
+
+	def _get_max_string_length (self, values):
+		max_length = 0
+		for value in values:
+			current_len = len(value)
+			if (current_len > max_length):
+				max_length = current_len
+
+		return max_length
+	
+	def _get_selected_port (self):
+		return self.port_selector.get()
+	
+	def _get_selected_model (self):
+		return self.model_selector.get()
+
+	##### Callback #####
 	def set_callback_get_port_list (self, callback_function):
 		self.callback_get_port_list = callback_function
 	
@@ -264,13 +489,22 @@ class InstrumentConfigFrame (ttk.Frame):
 	def _send_callback_get_port_list (self):
 		self.callback_get_port_list()
 	
-	def _get_selected_port (self):
-		return self.port_selector.get()
+	##### Setter #####
+	def set_port_list_selector_values (self, values):
+		self.port_selector.configure(values=values)
+		if (self.port_selector.get() == ""):
+			self.port_selector.current(0)
+
+		self._update_port_selector_width(values)
 	
-	def _get_selected_model (self):
-		return self.model_selector.get()
+	def set_status_icon (self, status_is_OK):
+		if (status_is_OK == True):
+			self.status_icon.configure(image=self.icon["OK"])
+		else:
+			self.status_icon.configure(image=self.icon["error"])
 
 class ValueAndUnitSelector (ttk.Frame):
+	##### Creation of the selector frame for a number with unit #####
 	def __init__ (self, parent, row, label_text, spinbox_min, spinbox_max, spinbox_increment, spinbox_default_value, combobox_values, combobox_default_index, pady, logger):
 		self.logger = logger
 
@@ -300,6 +534,17 @@ class ValueAndUnitSelector (ttk.Frame):
 		self.combobox.bind("<<ComboboxSelected>>", clear_selection)
 		self.combobox.grid(column=2, row=0, sticky="e")
 	
+	##### Getter #####
+	def get_value (self):
+		try:
+			return float(self.spinbox.get())
+		except ValueError as e:
+			raise ValueError(f"le nombre doit être un nombre à virgule")
+	
+	def get_unit (self):
+		return self.combobox.get()
+
+	##### Other public method #####
 	def hide (self):
 		self.grid_remove()
 	
@@ -307,6 +552,7 @@ class ValueAndUnitSelector (ttk.Frame):
 		self.grid()
 
 class ListSelector (ttk.Frame):
+	##### Creation of the list selector frame #####
 	def __init__ (self, parent, row, label_text, combobox_values, logger):
 		self.logger = logger
 
@@ -328,8 +574,13 @@ class ListSelector (ttk.Frame):
 		self.combobox.current(0)
 		self.combobox.bind("<<ComboboxSelected>>", clear_selection)
 		self.combobox.grid(column=1, row=0, sticky="e")
+	
+	##### Getter #####
+	def get_value (self):
+		return self.combobox.get()
 
 class NumberSelector (ttk.Frame):
+	##### Creation of the number selector frame #####
 	def __init__ (self, parent, row, label_text, min_value, max_value, increment, default_value, logger):
 		self.logger = logger
 
@@ -351,8 +602,17 @@ class NumberSelector (ttk.Frame):
 		set_spinbox_value(self.spinbox, default_value)
 		self.spinbox.grid(column=1, row=0, sticky="e")
 
+	##### Getter #####
+	def get_value (self):
+		try:
+			return float(self.spinbox.get())
+		except ValueError as e:
+			raise ValueError(f"le nombre doit être un nombre à virgule")
+
 class StartStopButton (tk.Button):
-	def __init__ (self, parent, row, logger):
+	##### Creation of the start and stop acquisition button #####
+	def __init__ (self, parent, row, func_start_acquisition, logger):
+		self.func_start_acquisition = func_start_acquisition
 		self.logger = logger
 
 		self.measure_is_started = tk.BooleanVar(value=False)
@@ -363,11 +623,10 @@ class StartStopButton (tk.Button):
 
 		parent.rowconfigure(row, weight=1)
 
+	##### Interaction #####
 	def _on_press (self):
-		self.measure_is_started.set(not self.measure_is_started.get())
-		self.logger.debug(f"measure_is_started set to {self.measure_is_started.get()}")
-
-		self._update()
+		self.logger.debug("Start and stop acquisition button pressed")
+		self.callback_on_button_press()
 
 	def _update (self):
 		if (self.measure_is_started.get() == False):
@@ -376,8 +635,22 @@ class StartStopButton (tk.Button):
 		else:
 			self.text.set("Arrêter")
 			self.configure(background="#F84F31", activebackground="#E83F21")
+	
+	##### Getter #####
+	def get_measure_is_started (self):
+		return self.measure_is_started.get()
+	
+	##### Setter #####
+	def set_measure_is_started (self, value):
+		self.measure_is_started.set(value)
+		self._update()
+
+	##### Callback #####
+	def set_callback_on_button_press (self, callback_function):
+		self.callback_on_button_press = callback_function
 
 class VoltageRangeConfigFrame (ttk.Frame):
+	##### Creation of the voltage range selection frame (choose between amplitude/bias and min/max and get the values)
 	def __init__ (self, parent, row, logger):
 		self.logger = logger
 
@@ -386,10 +659,10 @@ class VoltageRangeConfigFrame (ttk.Frame):
 		self.columnconfigure(0, weight=1)
 		
 		self._create_range_mode_button(0)
-		self.amplitude_selector_frame = ValueAndUnitSelector(self, 1, "Amplitude", 0, 10000, 0.1, 0, ("V", "Vpp", "mV", "mVpp"), 0, 5, self.logger)
+		self.amplitude_selector_frame = ValueAndUnitSelector(self, 1, "Amplitude", 0.1, 10000, 0.1, 1, ("V", "Vpp", "mV", "mVpp"), 0, 5, self.logger)
 		self.bias_selector_frame = ValueAndUnitSelector(self, 2, "Biais", -10000, 10000, 0.1, 0, ("V", "mV"), 0, 0, self.logger)
 		self.minimum_selector_frame = ValueAndUnitSelector(self, 1, "Min.", -10000, 10000, 0.1, 0, ("V", "mV"), 0, 5, self.logger)
-		self.maximum_selector_frame = ValueAndUnitSelector(self, 2, "Max.", -10000, 10000, 0.1, 0, ("V", "mV"), 0, 0, self.logger)
+		self.maximum_selector_frame = ValueAndUnitSelector(self, 2, "Max.", -10000, 10000, 0.1, 1, ("V", "mV"), 0, 0, self.logger)
 	
 		self._update_frame_visibility()
 
@@ -400,6 +673,14 @@ class VoltageRangeConfigFrame (ttk.Frame):
 		self.range_mode_button = tk.Button(self, textvariable=self.range_mode_button_text, command=self._on_range_mode_button_press)
 		self.range_mode_button.grid(column=0, columnspan=3, row=row)
 		self._update_range_mode_button()
+	
+	##### Interaction #####
+	def _on_range_mode_button_press (self):
+		self.range_mode_is_min_max_selected.set(not self.range_mode_is_min_max_selected.get())
+		self.logger.debug(f"range_mode_is_min_max_selected set to {self.range_mode_is_min_max_selected.get()}")
+
+		self._update_range_mode_button()
+		self._update_frame_visibility()
 	
 	def _update_frame_visibility (self):
 		if (self.range_mode_is_min_max_selected.get() == False):
@@ -418,13 +699,120 @@ class VoltageRangeConfigFrame (ttk.Frame):
 			self.range_mode_button_text.set("Utiliser min/max")
 		else:
 			self.range_mode_button_text.set("Utiliser amplitude/biais")
-	
-	def _on_range_mode_button_press (self):
-		self.range_mode_is_min_max_selected.set(not self.range_mode_is_min_max_selected.get())
-		self.logger.debug(f"range_mode_is_min_max_selected set to {self.range_mode_is_min_max_selected.get()}")
 
-		self._update_range_mode_button()
-		self._update_frame_visibility()
+	##### Getter #####
+	def get_amplitude_bias_min_max_value (self):
+		if self.range_mode_is_min_max_selected.get() == True:
+			(minimum_value, maximum_value) = self._get_min_max_value_verified()
+			return {
+				"method" : "min/max",
+				"min" : minimum_value,
+				"max" : maximum_value
+			}
+		else:
+			amplitude_value = self._get_amplitude_value_and_unit()
+			bias_value = self._get_bias_value_and_unit()
+			return {
+				"method" : "amplitude/bias",
+				"amplitude" : amplitude_value,
+				"bias" : bias_value
+			}
+
+	def _get_min_max_value_verified (self):
+		minimum_value = self._get_minimum_value_and_unit()
+		maximum_value = self._get_maximum_value_and_unit()
+		if (minimum_value >= maximum_value):
+			raise ValueError("La valeur de la tension minimale doit être strictement inférieure à la valeur de la tension maximale")
+
+		return (minimum_value, maximum_value)
+
+	### Minimum value ###
+	def _get_minimum_value (self):
+		return self.minimum_selector_frame.get_value()
+	
+	def _get_minimum_value_unit (self):
+		return self.minimum_selector_frame.get_unit()
+	
+	def _get_minimum_value_and_unit (self):
+		try:
+			value = self._get_minimum_value()
+		except ValueError as e:
+			raise ValueError(f"Valeur minimale du signal : {str(e)}")
+
+		if not number_is_in_range(value, -10000, 10000):
+			raise ValueError("La valeur minimale du signal doit être comprise entre +/- 10 000 (indépendamment de l'unité)")
+
+		return (
+			value,
+			self._get_minimum_value_unit()
+		)
+
+	### Maximum value ###
+	def _get_maximum_value (self):
+		return self.maximum_selector_frame.get_value()
+	
+	def _get_maximum_value_unit (self):
+		return self.maximum_selector_frame.get_unit()
+	
+	def _get_maximum_value_and_unit (self):
+		try:
+			value = self._get_maximum_value()
+		except ValueError as e:
+			raise ValueError(f"Valeur maximale du signal : {str(e)}")
+
+		if not number_is_in_range(value, -10000, 10000):
+			raise ValueError("La valeur maximale du signal doit être comprise entre +/- 10 000 (indépendamment de l'unité)")
+
+		return (
+			value,
+			self._get_maximum_value_unit()
+		)
+	
+	### Amplitude value ###
+	def _get_amplitude_value (self):
+		try:
+			value = self.amplitude_selector_frame.get_value()
+			return float(value)
+		except ValueError as e:
+			raise ValueError(f"le nombre doit être un nombre à virgule")
+	
+	def _get_amplitude_value_unit (self):
+		return self.amplitude_selector_frame.get_unit()
+	
+	def _get_amplitude_value_and_unit (self):
+		try:
+			value = self._get_amplitude_value()
+		except ValueError as e:
+			raise ValueError(f"Amplitude du signal : {str(e)}")
+
+		if not number_is_in_range(value, 0.1, 10000):
+			raise ValueError("La valeur de l'amplitude du signal doit être comprise entre 0.1 et 10 000 (indépendamment de l'unité)")
+
+		return (
+			value,
+			self._get_amplitude_value_unit()
+		)
+
+	### Bias value ###
+	def _get_bias_value (self):
+		return self.bias_selector_frame.get_value()
+	
+	def _get_bias_value_unit (self):
+		return self.bias_selector_frame.get_unit()
+	
+	def _get_bias_value_and_unit (self):
+		try:
+			value = self._get_bias_value()
+		except ValueError as e:
+			raise ValueError(f"Biais du signal : {str(e)}")
+
+		if not number_is_in_range(value, -10000, 10000):
+			raise ValueError("La valeur du biais du signal doit être comprise entre +/- 10 000 (indépendamment de l'unité)")
+
+		return (
+			value,
+			self._get_bias_value_unit()
+		)
 
 def set_spinbox_value (widget, value):
 	widget.delete(0, "end")
@@ -433,3 +821,6 @@ def set_spinbox_value (widget, value):
 def clear_selection (event):
 	event.widget.selection_clear()
 	event.widget.master.focus()	# for Windows
+
+def number_is_in_range (number, range_min, range_max):
+	return ((range_min <= number) and (number <= range_max))

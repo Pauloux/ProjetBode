@@ -7,6 +7,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 
 class GraphPanel (ttk.Frame):
+	##### Creation of the graph panel #####
 	def __init__ (self, parent, logger):
 		super().__init__(parent, borderwidth=5)
 
@@ -29,13 +30,12 @@ class GraphPanel (ttk.Frame):
 
 		self.update_all_graph()
 	
+	### Public method ###
+	# Graph update
 	def update_all_graph (self):
 		self._update_gain_graph_alone()
 		self._update_phase_graph_alone()
 		self._update_both_graph_alone()
-	
-	def _get_gain (self):
-		return 20 * np.log10(self.data["amplitude"])
 	
 	def _update_gain_graph_alone (self):
 		self.graph_gain.update(self.data["frequency"], self._get_gain())
@@ -46,6 +46,10 @@ class GraphPanel (ttk.Frame):
 	def _update_both_graph_alone (self):
 		self.graph_both.update(self.data["frequency"], self._get_gain(), self.data["phase"])
 	
+	def _get_gain (self):
+		return 20 * np.log10(self.data["amplitude"])
+
+	# Hide and show graphs
 	def show_gain_only (self):
 		self.graph_gain.show()
 		self.graph_phase.hide()
@@ -78,6 +82,7 @@ class GraphPanel (ttk.Frame):
 		self.rowconfigure(0, weight=1)
 		self.rowconfigure(1, weight=0)
 	
+	# Others
 	def append_data_point (self, data):
 		"""
 		data : array or tuple.
@@ -88,8 +93,9 @@ class GraphPanel (ttk.Frame):
 		self.data["frequency"].append(data[0])
 		self.data["amplitude"].append(data[1])
 		self.data["phase"].append(data[2])
-
+	
 class SimpleGraph (ttk.Frame):
+	##### Creation of a graph with one data
 	def __init__ (self, parent, row, x_axis_name, y_axis_name, logger):
 		super().__init__(parent)
 		self.grid(column=0, row=row, sticky="nsew")
@@ -113,17 +119,15 @@ class SimpleGraph (ttk.Frame):
 
 		self.canva.get_tk_widget().grid(column=0, row=0, sticky="nsew")
 	
-	def set_x_axis_range (self, minimum, maximum):
-		self.ax.set_xlim(minimum, maximum)
-	
-	def _update_axis_range (self):
-		self.ax.relim()
-		self.ax.autoscale_view()
-
+	##### Methods #####
 	def update (self, data_x, data_y):
 		self.line.set_data(data_x, data_y)
 		self._update_axis_range()
 		self.canva.draw()
+	
+	def _update_axis_range (self):
+		self.ax.relim()
+		self.ax.autoscale_view()
 	
 	def show (self):
 		self.grid()
@@ -131,7 +135,11 @@ class SimpleGraph (ttk.Frame):
 	def hide (self):
 		self.grid_remove()
 
+	def set_x_axis_range (self, minimum, maximum):
+		self.ax.set_xlim(minimum, maximum)
+
 class DoubleGraph (ttk.Frame):
+	##### Creation of a graph with two data (and y unit)
 	def __init__ (self, parent, row, x_axis_name, y_axis_1_name, y_axis_2_name, logger):
 		super().__init__(parent)
 		self.grid(column=0, row=row, sticky="nsew")
@@ -160,13 +168,7 @@ class DoubleGraph (ttk.Frame):
 
 		self.canva.get_tk_widget().grid(column=0, row=0, sticky="nsew")
 
-	def _update_axis_range (self):
-		self.ax_1.relim()
-		self.ax_1.autoscale_view()
-
-		self.ax_2.relim()
-		self.ax_2.autoscale_view()
-
+	##### Methods #####
 	def update (self, data_x, data_y_1, data_y_2):
 		self.line_1.set_data(data_x, data_y_1)
 		self.line_2.set_data(data_x, data_y_2)
@@ -174,8 +176,19 @@ class DoubleGraph (ttk.Frame):
 		self._update_axis_range()
 		self.canva.draw()
 
+	def _update_axis_range (self):
+		self.ax_1.relim()
+		self.ax_1.autoscale_view()
+
+		self.ax_2.relim()
+		self.ax_2.autoscale_view()
+
 	def show (self):
 		self.grid()
 
 	def hide (self):
 		self.grid_remove()
+
+	def set_x_axis_range (self, minimum, maximum):
+		self.ax_1.set_xlim(minimum, maximum)
+		self.ax_2.set_xlim(minimum, maximum)
