@@ -6,8 +6,8 @@ def init_logging ():
           
           stream_handler = logging.StreamHandler()
           stream_handler.setFormatter(logging.Formatter("App:%(levelname)s:%(message)s"))
-          #stream_handler.setLevel(logging.INFO)
-          stream_handler.setLevel(logging.DEBUG)
+          stream_handler.setLevel(logging.INFO)
+          #stream_handler.setLevel(logging.DEBUG)
   
           log_file_handler = logging.FileHandler("App.log")
           log_file_handler.setLevel(logging.DEBUG)

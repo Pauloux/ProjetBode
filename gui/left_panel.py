@@ -34,8 +34,7 @@ class LeftPanel (ttk.Frame):
 		self.frequency_sweep_frame = FrequencySweepFrame(self, 10, ("mHz", "Hz", "kHz", "MHz"), 1, self.logger)
 
 		self._create_title(11, "Acquisition")
-		self.mean_samples = NumberSelector(self, 12, "Moyenne", 1, 1000, 1, 1, self.logger)
-		self.interval_between_points = ValueAndUnitSelector(self, 13, "Intervalle points", 0.1, 10000,  0.1, 1, ("ms", "s"), 1, 5, self.logger)
+		self.mean_samples = ListSelector(self, 12, "Moyenne", (1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024), self.logger)
 		
 		self.rowconfigure(14, weight=1)	# To automatically adapt the height of the button bellow
 		self.start_stop_button = StartStopButton(self, 15, self.get_acquisition_parameters, self.logger)
@@ -68,19 +67,30 @@ class LeftPanel (ttk.Frame):
 		self.callback_update_instruments()
 	
 	##### Start and stop acquisition button ####
+	def set_start_stop_button_status (self, measure_is_started):
+		self.start_stop_button.set_measure_is_started(measure_is_started)
+
 	def _on_callback_start_stop_button_press (self):
 		measure_is_started = self.start_stop_button.get_measure_is_started()
 
 		# Stop the measure if it is running
 		if measure_is_started:
 			self.start_stop_button.set_measure_is_started(False)
-		else:
-			acquisition_parameters = self.get_acquisition_parameters()
-			if acquisition_parameters == None:
-				return
+			self.callback_stop_acquisition()
+			return
 
-			self.start_stop_button.set_measure_is_started(True)
-			print("Starting acquisition...")
+		acquisition_parameters = self.get_acquisition_parameters()
+		if acquisition_parameters == None:
+			return
+
+		self.start_stop_button.set_measure_is_started(True)
+		self.callback_start_acquisition(acquisition_parameters)
+	
+	def set_callback_start_acquisition (self, callback_function):
+		self.callback_start_acquisition = callback_function
+
+	def set_callback_stop_acquisition (self, callback_function):
+		self.callback_stop_acquisition = callback_function
 
 	##### Get acquisition parameters #####
 	def get_acquisition_parameters (self):
@@ -91,23 +101,35 @@ class LeftPanel (ttk.Frame):
 			return None
 
 	def _get_formatted_acquisition_parameters (self):
-		signal_shape = self.signal_shape_frame.get_value()
+		signal_shape = self._get_formated_signal_shape()
 
-		amplitude_bias_min_max_value_dict = self.voltage_range_selector_frame.get_amplitude_bias_min_max_value()
+		amplitude_bias_dict = self.voltage_range_selector_frame.get_amplitude_bias_value()
+		amplitude_Vpp = amplitude_bias_dict["amplitude_Vpp"]
+		bias_V = amplitude_bias_dict["bias_V"]
 
 		freq_points = self._get_freq_points()
-
 		mean_samples = self._get_mean_samples_verified()
-
-		interval_between_points = self._get_true_interval_between_points()			
 	
 		return {
 			"signal_shape" : signal_shape,
-			"amplitude" : amplitude_bias_min_max_value_dict,
+			"amplitude" : amplitude_Vpp,
+			"bias" : bias_V,
 			"freq_points" : freq_points,
 			"mean_samples" : mean_samples,
-			"interval_between_points" : interval_between_points
 		}
+
+	### Signal shape ###
+	def _get_formated_signal_shape (self):
+		signal_shape = self.signal_shape_frame.get_value_str()
+		signal_shape_lower = signal_shape.lower()
+
+		if signal_shape_lower == "sinus":
+			return "sine"
+		if signal_shape_lower == "carré":
+			return "square"
+
+		self.logger.error("Signal shape {signal_shape} unknown")
+		return 
 
 	### Frequency points ###
 	def _get_freq_points (self):
@@ -201,7 +223,6 @@ class LeftPanel (ttk.Frame):
 		except ValueError as e:
 			raise ValueError(f"Espacement des points en fréquence : {str(e)}")
 
-		print(f"true freq spacing value : {value} ({type(value)})")
 		if not number_is_in_range(value, 0.1, 10000):
 			raise ValueError("L'espacement des points en fréquence doit être compris entre 0.1 et 10000 (indépendamment de l'unité)")
 
@@ -223,39 +244,12 @@ class LeftPanel (ttk.Frame):
 		self.logger.warning(f"Unknown unit {unit} for frequency conversion")
 		return 0
 	
-	### Time interval between points ###
-	def _get_true_interval_between_points (self):
-		try:
-			value = self.interval_between_points.get_value()
-		except ValueError as e:
-			raise ValueError(f"Intervalle de temps entre les points : {str(e)}")
-
-		if not number_is_in_range(value, 0.1, 10000):
-			raise ValueError("L'intervalle de temps entre les points doit être compris entre 0.1 et 10 000 (indépendamment de l'unité)")
-
-		unit = self.interval_between_points.get_unit()
-		true_interval = self._convert_time_in_s(value, unit)
-
-		return true_interval
-
-	def _convert_time_in_s (self, value, unit):
-		if unit == "ms":
-			return value / 1000
-		if unit == "s":
-			return value
-
-		self.logger.warning(f"Unknown unit {unit} for time conversion")
-		return 0
-
 	### Number of samples for the mean ###
 	def _get_mean_samples_verified (self):
 		try:
-			mean_samples = self.mean_samples.get_value()
+			mean_samples = self.mean_samples.get_value_int()
 		except ValueError as e:
 			raise ValueError(f"Nombre de points de moyenne : {str(e)}")
-
-		if not number_is_in_range (mean_samples, 1, 1000):
-			raise ValueError("Le nombre de points de moyenne à prendre doit être compris entre 1 et 1 000")
 
 		return mean_samples
 
@@ -453,8 +447,8 @@ class InstrumentConfigFrame (ttk.Frame):
 
 	def _update_port_selector_width (self, values):
 		max_length = self._get_max_string_length(values)
-		if (max_length < 15):
-			max_length = 15
+		if (max_length < 13):
+			max_length = 13
 
 		self.port_selector.configure(width = max_length + 2)
 
@@ -576,8 +570,14 @@ class ListSelector (ttk.Frame):
 		self.combobox.grid(column=1, row=0, sticky="e")
 	
 	##### Getter #####
-	def get_value (self):
+	def get_value_str (self):
 		return self.combobox.get()
+	
+	def get_value_int (self):
+		try:
+			return int(self.combobox.get())
+		except ValueError as e:
+			raise ValueError(f"doit être un nombre entier")
 
 class NumberSelector (ttk.Frame):
 	##### Creation of the number selector frame #####
@@ -701,30 +701,46 @@ class VoltageRangeConfigFrame (ttk.Frame):
 			self.range_mode_button_text.set("Utiliser amplitude/biais")
 
 	##### Getter #####
-	def get_amplitude_bias_min_max_value (self):
+	def get_amplitude_bias_value (self):
 		if self.range_mode_is_min_max_selected.get() == True:
-			(minimum_value, maximum_value) = self._get_min_max_value_verified()
-			return {
-				"method" : "min/max",
-				"min" : minimum_value,
-				"max" : maximum_value
-			}
+			minimum_V = self._get_minimum_value_in_V()
+			maximum_V = self._get_maximum_value_in_V()
+			if minimum_V >= maximum_V:
+				raise ValueError("La valeur minimale du signal doit être strictement inférieure à la valeur maximale du signal")
+			return self._convert_min_max_to_amplitude_bias(minimum_V, maximum_V)
 		else:
-			amplitude_value = self._get_amplitude_value_and_unit()
-			bias_value = self._get_bias_value_and_unit()
+			amplitude_Vpp = self._get_amplitude_value_in_Vpp()
+			bias_V = self._get_bias_value_in_V()
 			return {
-				"method" : "amplitude/bias",
-				"amplitude" : amplitude_value,
-				"bias" : bias_value
+				"amplitude_Vpp" : amplitude_Vpp,
+				"bias_V" : bias_V
 			}
 
-	def _get_min_max_value_verified (self):
-		minimum_value = self._get_minimum_value_and_unit()
-		maximum_value = self._get_maximum_value_and_unit()
-		if (minimum_value >= maximum_value):
-			raise ValueError("La valeur de la tension minimale doit être strictement inférieure à la valeur de la tension maximale")
+	def _get_voltage_in_Vpp (self, value, unit):
+		tmp_value = value
+		if "m" in unit:
+			tmp_value = tmp_value / 1000
 
-		return (minimum_value, maximum_value)
+		if not ("pp" in unit):
+			tmp_value = tmp_value * 2
+
+		return tmp_value
+	
+	def _get_voltage_in_V (self, value, unit):
+		tmp_value = value
+		if "m" in unit:
+			tmp_value = tmp_value / 1000
+
+		return tmp_value
+
+	def _convert_min_max_to_amplitude_bias (self, minimum_V, maximum_V):
+		amplitude_Vpp = maximum_V - minimum_V
+		bias_V = (minimum_V + maximum_V) / 2
+
+		return {
+			"amplitude_Vpp" : amplitude_Vpp,
+			"bias_V" : bias_V
+		}
 
 	### Minimum value ###
 	def _get_minimum_value (self):
@@ -733,7 +749,7 @@ class VoltageRangeConfigFrame (ttk.Frame):
 	def _get_minimum_value_unit (self):
 		return self.minimum_selector_frame.get_unit()
 	
-	def _get_minimum_value_and_unit (self):
+	def _get_minimum_value_in_V (self):
 		try:
 			value = self._get_minimum_value()
 		except ValueError as e:
@@ -742,11 +758,10 @@ class VoltageRangeConfigFrame (ttk.Frame):
 		if not number_is_in_range(value, -10000, 10000):
 			raise ValueError("La valeur minimale du signal doit être comprise entre +/- 10 000 (indépendamment de l'unité)")
 
-		return (
-			value,
-			self._get_minimum_value_unit()
-		)
+		unit = self._get_minimum_value_unit()
 
+		return self._get_voltage_in_V(value, unit)
+	
 	### Maximum value ###
 	def _get_maximum_value (self):
 		return self.maximum_selector_frame.get_value()
@@ -754,7 +769,7 @@ class VoltageRangeConfigFrame (ttk.Frame):
 	def _get_maximum_value_unit (self):
 		return self.maximum_selector_frame.get_unit()
 	
-	def _get_maximum_value_and_unit (self):
+	def _get_maximum_value_in_V (self):
 		try:
 			value = self._get_maximum_value()
 		except ValueError as e:
@@ -763,11 +778,10 @@ class VoltageRangeConfigFrame (ttk.Frame):
 		if not number_is_in_range(value, -10000, 10000):
 			raise ValueError("La valeur maximale du signal doit être comprise entre +/- 10 000 (indépendamment de l'unité)")
 
-		return (
-			value,
-			self._get_maximum_value_unit()
-		)
-	
+		unit = self._get_maximum_value_unit()
+
+		return self._get_voltage_in_V(value, unit)
+
 	### Amplitude value ###
 	def _get_amplitude_value (self):
 		try:
@@ -778,8 +792,8 @@ class VoltageRangeConfigFrame (ttk.Frame):
 	
 	def _get_amplitude_value_unit (self):
 		return self.amplitude_selector_frame.get_unit()
-	
-	def _get_amplitude_value_and_unit (self):
+
+	def _get_amplitude_value_in_Vpp (self):
 		try:
 			value = self._get_amplitude_value()
 		except ValueError as e:
@@ -788,11 +802,10 @@ class VoltageRangeConfigFrame (ttk.Frame):
 		if not number_is_in_range(value, 0.1, 10000):
 			raise ValueError("La valeur de l'amplitude du signal doit être comprise entre 0.1 et 10 000 (indépendamment de l'unité)")
 
-		return (
-			value,
-			self._get_amplitude_value_unit()
-		)
+		unit = self._get_amplitude_value_unit()
 
+		return self._get_voltage_in_Vpp(value, unit)
+	
 	### Bias value ###
 	def _get_bias_value (self):
 		return self.bias_selector_frame.get_value()
@@ -800,7 +813,7 @@ class VoltageRangeConfigFrame (ttk.Frame):
 	def _get_bias_value_unit (self):
 		return self.bias_selector_frame.get_unit()
 	
-	def _get_bias_value_and_unit (self):
+	def _get_bias_value_in_V (self):
 		try:
 			value = self._get_bias_value()
 		except ValueError as e:
@@ -809,10 +822,9 @@ class VoltageRangeConfigFrame (ttk.Frame):
 		if not number_is_in_range(value, -10000, 10000):
 			raise ValueError("La valeur du biais du signal doit être comprise entre +/- 10 000 (indépendamment de l'unité)")
 
-		return (
-			value,
-			self._get_bias_value_unit()
-		)
+		unit = self._get_bias_value_unit()
+
+		return self._get_voltage_in_V(value, unit)
 
 def set_spinbox_value (widget, value):
 	widget.delete(0, "end")

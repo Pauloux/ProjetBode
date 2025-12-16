@@ -16,9 +16,9 @@ class MenuBar (tk.Menu):
 		
 		self.add_cascade(menu=self.save_menu, label="Enregistrer")
 
-		self.save_menu.add_command(label="Enregistrer au format csv", command=lambda *args: self.logger.debug("Save to csv"))
-		self.save_menu.add_command(label="Enregistrer au format png", command=lambda *args: self.logger.debug("Save to png"))
-		self.save_menu.add_command(label="Enregistrer au format jpg", command=lambda *args: self.logger.debug("Save to jpg"))
+		self.save_menu.add_command(label="Enregistrer au format csv", command=lambda *args: self._on_save("csv"))
+		self.save_menu.add_command(label="Enregistrer au format png", command=lambda *args: self._on_save("png"))
+		self.save_menu.add_command(label="Enregistrer au format jpg", command=lambda *args: self._on_save("jpg"))
 	
 	def _create_display_menubar (self):
 		self.display_menu = tk.Menu(self, tearoff=0)
@@ -50,6 +50,9 @@ class MenuBar (tk.Menu):
 		self.show_debug.trace_add("write", lambda *args: self.logger.debug(f"show_debug set to {self.show_debug.get()}"))
 	
 	##### Interaction #####
+	def _on_save (self, extension):
+		self.callback_save(extension)
+
 	def _on_gain_phase_change (self, *args):
 		"""
 		Allows to select gain and/or phase to display, but prevents both of them being off.
@@ -93,25 +96,27 @@ class MenuBar (tk.Menu):
 			self.display_menu.entryconfigure("2 graphiques", state=tk.DISABLED)
 
 	##### Callback #####
+	def set_callback_save (self, callback_function):
+		self.callback_save = callback_function
+
 	def set_callback_graph_display (self, callback_function):
 		self.callback_graph_display = callback_function
 
 	def _send_callback_graph_display (self):
 		self.callback_graph_display(
-			show_gain = self._is_show_gain_selected(),
-			show_phase = self._is_show_phase_selected(),
-			show_on_same_graph = self._is_show_1_graph_selected()
+			show_gain = self.is_show_gain_selected(),
+			show_phase = self.is_show_phase_selected(),
+			show_on_same_graph = self.is_show_1_graph_selected()
 		)
 
 	def trigger_callback_graph_display (self):
 		self._send_callback_graph_display()
 
-	def _is_show_gain_selected (self):
+	def is_show_gain_selected (self):
 		return self.show_gain.get()
 	
-	def _is_show_phase_selected (self):
+	def is_show_phase_selected (self):
 		return self.show_phase.get()
 	
-	def _is_show_1_graph_selected (self):
+	def is_show_1_graph_selected (self):
 		return self.show_one_graph.get()
-	

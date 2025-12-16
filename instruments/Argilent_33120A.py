@@ -41,7 +41,7 @@ class Argilent_33120A:
 
 		return None
 
-	def _send_query (self, command):
+	def _query (self, command):
 		write_success = self._write(command)
 		if not write_success:
 			return None
@@ -56,4 +56,28 @@ class Argilent_33120A:
 			return True
 
 	def get_IDN (self):
-		return self._send_query("*IDN?")
+		return self._query("*IDN?")
+	
+	def set_shape (self, signal_shape):
+		signal_shape_lower = signal_shape.lower()
+		if signal_shape_lower == "sine":
+			cmd_shape = "SIN"
+		elif signal_shape_lower == "square":
+			cmd_shape = "SQU"
+		else:
+			self.logger.error(f"Signal shape {signal_shape} unknown")
+			return
+
+		self._write(f"FUNC:SHAP {cmd_shape}")
+	
+	def set_frequency (self, frequency_Hz):
+		self._write(f"FREQ {frequency_Hz}")
+	
+	def set_amplitude (self, amplitude_pp):
+		self._write(f"VOLT {amplitude_pp}")
+	
+	def set_offset (self, offset_V):
+		self._write(f"VOLT:OFFS {offset_V}")
+	
+	def set_unit (self, unit):
+		self._write(f"VOLT:UNIT {unit}")

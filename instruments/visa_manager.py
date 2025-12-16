@@ -1,7 +1,7 @@
 import pyvisa
 
 TIMEOUT_MS = 50
-NUMBER_OF_QUERY_ATTEMPT = 10
+NUMBER_OF_QUERY_ATTEMPT = 100
 
 class VISAManager:
 	def __init__ (self, supported_instruments, logger):
@@ -38,34 +38,9 @@ class VISAManager:
 	def _close_resource (self, instr_resource):
 		instr_resource.close()
 
-	def _is_instrument_a_generator (self, model):
-		for generator_model in self.supported_instruments["generator"].keys():
-			if model == generator_model:
-				return True
-
-		return False
-
-	def _is_instrument_a_oscilloscope (self, model):
-		for oscilloscope_model in self.supported_instruments["oscilloscope"].keys():
-			if model == oscilloscope_model:
-				return True
-
-		return False
-
+	##### Instruments common functions #####
 	def _is_model_supported (self, model):
 		return (self._is_instrument_a_generator(model) or self._is_instrument_a_oscilloscope(model))
-	
-	def _get_generator_port (self):
-		if self.generator != None:
-			return self.generator.get_port()
-
-		return None
-
-	def _get_oscilloscope_port (self):
-		if self.oscilloscope != None:
-			return self.oscilloscope.get_port()
-
-		return None
 
 	def _port_is_used_by (self, port):
 		generator_port = self._get_generator_port()
@@ -116,6 +91,7 @@ class VISAManager:
 		else:
 			self.logger.debug("Instrument is supported but is not a generator nor an oscilloscope. SHOULD NEVER HAPPEN")
 
+	##### Generator #####
 	def generator_is_responding (self):
 		if self.generator == None:
 			self.logger.debug("Cannot check if generator is responding because no generator is set")
@@ -123,9 +99,94 @@ class VISAManager:
 
 		return self.generator.is_responding()
 
+	def _get_generator_port (self):
+		if self.generator != None:
+			return self.generator.get_port()
+
+		return None
+
+	def _is_instrument_a_generator (self, model):
+		for generator_model in self.supported_instruments["generator"].keys():
+			if model == generator_model:
+				return True
+
+		return False
+
+	def set_generator_signal_shape (self, shape):
+		self.generator.set_shape(shape)
+	
+	def set_generator_amplitude_pp (self, amplitude_pp):
+		self.generator.set_amplitude(amplitude_pp)
+	
+	def set_generator_frequency (self, frequency_Hz):
+		self.generator.set_frequency(frequency_Hz)
+
+	def set_generator_offset (self, offset_V):
+		self.generator.set_offset(offset_V)
+
+	def set_generator_unit (self, unit):
+		self.generator.set_unit(unit)
+
+	##### Oscilloscope #####
 	def oscilloscope_is_responding (self):
 		if self.oscilloscope == None:
 			self.logger.debug("Cannot check if oscilloscope is responding because no oscilloscope is set")
 			return False
 
 		return self.oscilloscope.is_responding()
+
+	def _get_oscilloscope_port (self):
+		if self.oscilloscope != None:
+			return self.oscilloscope.get_port()
+
+		return None
+
+	def _is_instrument_a_oscilloscope (self, model):
+		for oscilloscope_model in self.supported_instruments["oscilloscope"].keys():
+			if model == oscilloscope_model:
+				return True
+
+		return False
+
+	def oscilloscope_display_channel (self, channel_number):
+		self.oscilloscope.display_channel(channel_number)
+	
+	def set_oscilloscope_channel_offset (self, channel_number, offset_V):
+		self.oscilloscope.set_channel_offset(channel_number, offset_V)
+
+	def set_oscilloscope_channel_range (self, channel_number, range_V):
+		self.oscilloscope.set_channel_range(channel_number, range_V)
+
+	def get_oscilloscope_channel_range (self, channel_number):
+		return self.oscilloscope.get_channel_range(channel_number)
+
+	def set_oscilloscope_channel_probe_ratio (self, channel_number, ratio):
+		self.oscilloscope.set_channel_probe_ratio(channel_number, ratio)
+	
+	def set_oscilloscope_channel_unit (self, channel_number, unit):
+		self.oscilloscope.set_channel_unit(channel_number, unit)
+
+	def set_oscilloscope_timebase_scale (self, scale):
+		self.oscilloscope.set_timebase_scale(scale)
+
+	def set_oscilloscope_timebase_mode (self, mode):
+		self.oscilloscope.set_timebase_mode(mode)
+
+	def set_average (self, average_number):
+		if average_number == 1:
+			self._set_average_mode("normal")
+		else:
+			self._set_average_mode("average")
+			self._set_average_number(average_number)
+
+	def _set_average_mode (self, mode):
+		self.oscilloscope.set_average_mode(mode)
+	
+	def _set_average_number (self, number_of_points):
+		self.oscilloscope.set_average_number(number_of_points)
+
+	def measure_amplitude_pp (self, channel_number):
+		return self.oscilloscope.measure_amplitude_pp(channel_number)
+
+	def measure_phase (self, channel_1_number, channel_2_number):
+		return self.oscilloscope.measure_phase(channel_1_number, channel_2_number)

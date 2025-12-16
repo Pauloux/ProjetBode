@@ -10,7 +10,7 @@ def tracer_filtre_passe_bas_ordre_1 (app, f_range, i):
 	f = f_range[i]
 	amplitude, phase = get_filtre_passe_bas_ordre_1(f)
 	
-	app.graph_panel.append_data_point((f, amplitude, phase))
+	app.graph_panel.append_data_point(f, 1, amplitude, phase)
 	app.graph_panel.update_all_graph()
 
 	print(f"i={i}; f={f}")

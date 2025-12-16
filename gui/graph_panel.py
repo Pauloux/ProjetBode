@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 import numpy as np
 
@@ -20,7 +20,8 @@ class GraphPanel (ttk.Frame):
 
 		self.data = {
 			"frequency"	: [],
-			"amplitude"	: [],
+			"amplitude_in"	: [],
+			"amplitude_out"	: [],
 			"phase"		: []
 		}
 
@@ -47,7 +48,7 @@ class GraphPanel (ttk.Frame):
 		self.graph_both.update(self.data["frequency"], self._get_gain(), self.data["phase"])
 	
 	def _get_gain (self):
-		return 20 * np.log10(self.data["amplitude"])
+		return 20 * np.log10(np.divide(self.data["amplitude_out"], self.data["amplitude_in"]))
 
 	# Hide and show graphs
 	def show_gain_only (self):
@@ -82,17 +83,45 @@ class GraphPanel (ttk.Frame):
 		self.rowconfigure(0, weight=1)
 		self.rowconfigure(1, weight=0)
 	
+	# Save to csv
+	def save_csv (self, filename):
+		with open(filename, 'w') as file:
+			file.write("frequency,amplitude_in,amplitude_out,gaindB,phase\n")
+
+			frequency = self.data["frequency"]
+			amplitude_in = self.data["amplitude_in"]
+			amplitude_out = self.data["amplitude_out"]
+			gain = self._get_gain()
+			phase = self.data["phase"]
+			for i in range (len(frequency)):
+				file.write(f"{frequency[i]},{amplitude_in[i]},{amplitude_out[i]},{gain[i]},{phase[i]}\n")
+
+	# Save graphs
+	def save_gain (self, filename):
+		self.graph_gain.save(filename)
+	
+	def save_phase (self, filename):
+		self.graph_phase.save(filename)
+	
+	def save_both_on_same (self, filename):
+		self.graph_both.save(filename)
+
 	# Others
-	def append_data_point (self, data):
-		"""
-		data : array or tuple.
-		First element : frequency
-		Second element : raw ampltiude
-		Third element : phase
-		"""
-		self.data["frequency"].append(data[0])
-		self.data["amplitude"].append(data[1])
-		self.data["phase"].append(data[2])
+	def append_data_point (self, frequency, amplitude_in, amplitude_out, phase):
+		self.data["frequency"].append(frequency)
+		self.data["amplitude_in"].append(amplitude_in)
+		self.data["amplitude_out"].append(amplitude_out)
+		self.data["phase"].append(phase)
+	
+	def clear (self):
+		self.data = {
+			"frequency"	: [],
+			"amplitude_in"	: [],
+			"amplitude_out"	: [],
+			"phase"		: []
+		}
+		
+		self.update_all_graph()
 	
 class SimpleGraph (ttk.Frame):
 	##### Creation of a graph with one data
@@ -108,7 +137,7 @@ class SimpleGraph (ttk.Frame):
 		self.ax = self.fig.add_subplot()
 		self.fig.patch.set_facecolor("#D9D9D9")
 
-		self.line, = self.ax.semilogx(1, 1)
+		self.line, = self.ax.semilogx(1, 0)
 		self.ax.set_xlabel(x_axis_name)
 		self.ax.set_ylabel(y_axis_name)
 		self.ax.grid(visible=True)
@@ -118,6 +147,9 @@ class SimpleGraph (ttk.Frame):
 		self.canva.draw()
 
 		self.canva.get_tk_widget().grid(column=0, row=0, sticky="nsew")
+
+		toolbar = NavigationToolbar2Tk(self.canva, self, pack_toolbar=False)
+		toolbar.grid(column=0, row=1, sticky="e")
 	
 	##### Methods #####
 	def update (self, data_x, data_y):
@@ -137,7 +169,10 @@ class SimpleGraph (ttk.Frame):
 
 	def set_x_axis_range (self, minimum, maximum):
 		self.ax.set_xlim(minimum, maximum)
-
+	
+	def save (self, filename):
+		self.fig.savefig(filename)
+	
 class DoubleGraph (ttk.Frame):
 	##### Creation of a graph with two data (and y unit)
 	def __init__ (self, parent, row, x_axis_name, y_axis_1_name, y_axis_2_name, logger):
@@ -157,8 +192,8 @@ class DoubleGraph (ttk.Frame):
 		self.ax_2.set_ylabel(y_axis_2_name)
 		self.ax_1.grid(visible=True)
 
-		self.line_1, = self.ax_1.semilogx(1, 1)
-		self.line_2, = self.ax_2.semilogx(1, 1, linestyle="dotted")
+		self.line_1, = self.ax_1.semilogx(1, 0)
+		self.line_2, = self.ax_2.semilogx(1, 0, linestyle="dotted")
 
 		self.fig.patch.set_facecolor("#D9D9D9")
 		self.fig.tight_layout()
@@ -167,6 +202,9 @@ class DoubleGraph (ttk.Frame):
 		self.canva.draw()
 
 		self.canva.get_tk_widget().grid(column=0, row=0, sticky="nsew")
+
+		toolbar = NavigationToolbar2Tk(self.canva, self, pack_toolbar=False)
+		toolbar.grid(column=0, row=1, sticky="e")
 
 	##### Methods #####
 	def update (self, data_x, data_y_1, data_y_2):
@@ -192,3 +230,6 @@ class DoubleGraph (ttk.Frame):
 	def set_x_axis_range (self, minimum, maximum):
 		self.ax_1.set_xlim(minimum, maximum)
 		self.ax_2.set_xlim(minimum, maximum)
+	
+	def save (self, filename):
+		self.fig.savefig(filename)

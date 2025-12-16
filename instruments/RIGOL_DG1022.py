@@ -9,6 +9,11 @@ class RIGOL_DG1022:
 		self.instr.timeout = timeout_ms
 		self.number_of_query_attempt = number_of_query_attempt
 		self.logger = logger
+
+		# Default values
+		self.set_shape("sine")
+		self.set_amplitude(1)
+		self.set_offset(0)
 	
 	def get_port (self):
 		return self.port
@@ -41,7 +46,7 @@ class RIGOL_DG1022:
 
 		return None
 
-	def _send_query (self, command):
+	def _query (self, command):
 		write_success = self._write(command)
 		if not write_success:
 			return None
@@ -56,4 +61,27 @@ class RIGOL_DG1022:
 			return True
 
 	def get_IDN (self):
-		return self._send_query("*IDN?")
+		return self._query("*IDN?")
+	
+	def set_shape (self, signal_shape):
+		signal_shape_lower = signal_shape.lower()
+		if signal_shape_lower == "sine":
+			self.signal_shape = "SIN"
+		elif signal_shape_lower == "square":
+			self.signal_shape = "SQU"
+		else:
+			self.signal_shape = None
+			self.logger.error(f"Signal shape {signal_shape} unknown")
+			return
+	
+	def set_frequency (self, frequency_Hz):
+		self._write(f"APPL:{self.signal_shape} {frequency_Hz},{self.amplitude_pp},{self.offset_V}")
+	
+	def set_amplitude (self, amplitude_pp):
+		self.amplitude_pp = amplitude_pp
+	
+	def set_offset (self, offset_V):
+		self.offset_V = offset_V
+	
+	def set_unit (self, unit):
+		pass
