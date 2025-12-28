@@ -7,7 +7,6 @@ class LeftPanel (ttk.Frame):
 	##### Left Panel creation #####
 	def __init__ (self, parent, supported_instruments, icon, logger):
 		super().__init__(parent, borderwidth=5, relief="ridge")
-		self.grid(column=0, row=0, sticky="nsew")
 		self.columnconfigure(0, weight=1)
 
 		self.supported_instruments = supported_instruments
@@ -29,13 +28,14 @@ class LeftPanel (ttk.Frame):
 		self.voltage_range_selector_frame = VoltageRangeConfigFrame(self, 6, self.logger)
 
 		self._create_title(7, "Fréquence")
-		self.min_frequency_frame = ValueAndUnitSelector(self, 8, "Fréquence min.", 1, 10000,  1, 100, ("mHz", "Hz", "kHz", "MHz"), 1, 5, self.logger)
-		self.max_frequency_frame = ValueAndUnitSelector(self, 9, "Fréquence max.", 1, 10000,  1, 10, ("mHz", "Hz", "kHz", "MHz"), 2, 0, self.logger)
+		self.min_frequency_frame = ValueAndUnitSelector(self, 8, "Fréquence min.", 1, 10000,  1, 1, ("mHz", "Hz", "kHz", "MHz"), 2, 5, self.logger)
+		self.max_frequency_frame = ValueAndUnitSelector(self, 9, "Fréquence max.", 1, 10000,  1, 1, ("mHz", "Hz", "kHz", "MHz"), 3, 0, self.logger)
 		self.frequency_sweep_frame = FrequencySweepFrame(self, 10, ("mHz", "Hz", "kHz", "MHz"), 1, self.logger)
 
 		self._create_title(11, "Acquisition")
 		self.mean_samples = ListSelector(self, 12, "Moyenne", (1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024), self.logger)
 		
+		# REMOVE BEFORE FLIGHT
 		self.rowconfigure(14, weight=1)	# To automatically adapt the height of the button bellow
 		self.start_stop_button = StartStopButton(self, 15, self.get_acquisition_parameters, self.logger)
 
@@ -671,7 +671,7 @@ class VoltageRangeConfigFrame (ttk.Frame):
 		self.range_mode_is_min_max_selected = tk.BooleanVar(value=False)
 
 		self.range_mode_button = tk.Button(self, textvariable=self.range_mode_button_text, command=self._on_range_mode_button_press)
-		self.range_mode_button.grid(column=0, columnspan=3, row=row)
+		self.range_mode_button.grid(column=0, columnspan=3, row=row, pady=5)
 		self._update_range_mode_button()
 	
 	##### Interaction #####

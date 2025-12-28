@@ -4,7 +4,7 @@ from utils import logging_config
 from gui.main_window import MainWindow
 
 def tracer_filtre_passe_bas_ordre_1 (app, f_range, i):
-	if (i == 200):
+	if (i == 100):
 		return
 
 	f = f_range[i]
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
 	logger.info("App opened")
 
-	f_range = np.logspace(-1, 4, 200)
+	f_range = np.logspace(-1, 4, 100)
 	app.after(1000, tracer_filtre_passe_bas_ordre_1, app, f_range, 1)
 
 	app.mainloop()

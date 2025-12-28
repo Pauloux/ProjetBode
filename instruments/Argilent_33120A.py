@@ -16,17 +16,17 @@ class Argilent_33120A:
 	def close (self):
 		try:
 			self.instr.close()
-			self.logger.debug("Successfuly closed resource")
+			self.logger.debug(f"({self.port}) Successfuly closed resource")
 		except Exception as e:
-			self.logger.debug(f"Failed to close resource, error {e}")
+			self.logger.error(f"({self.port})Failed to close resource, error {e}")
 	
 	def _write (self, command):
 		try:
 			self.instr.write(command)
-			self.logger.debug(f"Successfully wrote: {command}")
+			self.logger.debug(f"({self.port})Successfully wrote: {command}")
 			return True
 		except Exception as e:
-			self.logger.error(f"Error while writting {command}, error : {e}")
+			self.logger.error(f"({self.port})Error while writting {command}, error : {e}")
 
 		return False
 	
@@ -34,11 +34,12 @@ class Argilent_33120A:
 		for read_attempt in range (self.number_of_query_attempt):
 			try:
 				response = self.instr.read()
-				self.logger.debug(f"Successfully read ({read_attempt + 1}/{self.number_of_query_attempt}): {response}")
+				self.logger.debug(f"({self.port})Successfully read ({read_attempt + 1}/{self.number_of_query_attempt}): {response}")
 				return response
 			except Exception as e:
-				self.logger.error(f"Error while reading ({read_attempt + 1}/{self.number_of_query_attempt}), error : {e}")
+				self.logger.debug(f"({self.port})Error while reading ({read_attempt + 1}/{self.number_of_query_attempt}), error : {e}")
 
+		self.logger.error(f"({self.port})Error while reading")
 		return None
 
 	def _query (self, command):
@@ -65,7 +66,7 @@ class Argilent_33120A:
 		elif signal_shape_lower == "square":
 			cmd_shape = "SQU"
 		else:
-			self.logger.error(f"Signal shape {signal_shape} unknown")
+			self.logger.error(f"({self.port})Signal shape {signal_shape} unknown")
 			return
 
 		self._write(f"FUNC:SHAP {cmd_shape}")

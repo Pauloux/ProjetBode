@@ -2,9 +2,13 @@ import tkinter as tk
 from tkinter import ttk
 import pyvisa
 
+from gui.debug_panel import DebugPanel
 from gui.graph_panel import GraphPanel
 from gui.left_panel import LeftPanel
 from gui.menu_bar import MenuBar
+
+MEMORY_DEPTH = 6e6
+SAMPLE_RATE = 500e6	# With 2 channels
 
 OSCILLOSCOPE_SECURITY_FACTOR = 7
 OSCILLOSCOPE_PROCESSING_TIME_S = 0
@@ -78,15 +82,25 @@ class MainWindow(tk.Tk):
 		self._create_main_paned()
 
 		self.left_panel = LeftPanel(self, supported_instruments, self.icon, self.logger)
+		self.left_panel.grid(column=0, row=0, sticky="nsew")
+
 		self.graph_panel = GraphPanel(self, self.logger)
+		self.graph_panel.grid(column=1, row=0, sticky="nsew")
+
+		self.debug_panel = DebugPanel(self, self.logger)
+		self.debug_panel.grid(column=0, row=1, sticky="nsew")
 
 		self._finish_init_main_paned()
-	
+
+		self.rowconfigure(0, weight=9)
+		self.rowconfigure(1, weight=1)
+
+		self.menu_bar.trigger_callback_debug()
 		self._init_instruments_callback()
 
 	def _create_main_paned (self):
 		self.main_paned = tk.PanedWindow(self, orient="horizontal")
-		self.main_paned.grid(sticky="nsew")
+		self.main_paned.grid(column=0, row=0, sticky="nsew")
 
 	def _finish_init_main_paned (self):
 		self.main_paned.add(self.left_panel, minsize=200)
@@ -112,10 +126,11 @@ class MainWindow(tk.Tk):
 
 		self.menu_bar.set_callback_graph_display(self._on_callback_graph_display)
 		self.menu_bar.set_callback_save(self._on_callback_save)
+		self.menu_bar.set_callback_debug(self._on_callback_debug)
 
 	##### Instruments #####
 	def _update_instruments_status (self):
-		self.logger.debug("Updating instrument status")
+		self.logger.info("Updating instrument status")
 	
 		generator_status = self.visa_manager.generator_is_responding()
 		oscilloscope_status = self.visa_manager.oscilloscope_is_responding()
@@ -143,7 +158,7 @@ class MainWindow(tk.Tk):
 		self.left_panel.set_callback_stop_acquisition(self._on_callback_stop_acquisition)
 	
 	def _on_callback_get_port_list (self):
-		self.logger.debug("Updating the available port list")
+		self.logger.info("Updating the available port list")
 		self._update_generator_and_oscilloscope_port_list()
 		
 	def _on_callback_update_instruments_status (self):
@@ -167,6 +182,7 @@ class MainWindow(tk.Tk):
 
 		self.graph_panel.clear()
 
+		self.logger.info("Acquisition started")
 		self._init_acquisition(acquisition_parameters)
 		# Wait to give some time to the instrument to be initialized
 		self.after_identifier = self.after(2000, self._acquire, acquisition_parameters)
@@ -207,6 +223,7 @@ class MainWindow(tk.Tk):
 			self.logger.debug(f"Saved {filename} (both on the same graph)")
 		elif ((show_gain == True) and (show_phase == True) and (show_on_same_graph == False)):
 			filename_gain, filename_phase = self._get_file_gain_and_phase_suffix(filename)
+			self.logger.debug(f"Saved {filename_gain} and {filename_phase} (gain and phase separately)")
 			self.graph_panel.save_gain(filename_gain)
 			self.graph_panel.save_phase(filename_phase)
 		elif ((show_gain == True) and (show_phase == False)):
@@ -226,11 +243,20 @@ class MainWindow(tk.Tk):
 		filename_phase = filename_name + "-phase" + filename_extension
 
 		return (filename_gain, filename_phase)
+	
+	### Debug panel ###
+	def _on_callback_debug (self, show_debug):
+		self._show_debug_panel(show_debug)
+	
+	##### Debug panel #####
+	def _show_debug_panel (self, show_debug):
+		if show_debug == True:
+			self.debug_panel.grid()
+		else:
+			self.debug_panel.grid_remove()
 
 	##### Data acquisition #####
 	def _init_acquisition (self, acquisition_parameters):
-		# REMOVE BEFORE FLIGHT
-		print(acquisition_parameters)
 		self._init_acquisition_generator(acquisition_parameters)
 		self._init_acquisition_oscilloscope(acquisition_parameters)
 
@@ -263,7 +289,7 @@ class MainWindow(tk.Tk):
 		self.visa_manager.set_oscilloscope_channel_range(CHANNEL_OUT, acquisition_parameters["amplitude"] / 0.8)
 
 	def _acquire_set_frequency (self, frequency_list, frequency_index, mean_samples):
-		print(f"set frequency to {frequency_list[frequency_index]}")
+		self.logger.info(f"Frequency is {frequency_list[frequency_index]:.2f} Hz")
 		self.visa_manager.set_generator_frequency(frequency_list[frequency_index])
 		self._acquire_set_timebase(frequency_list, frequency_index, mean_samples)
 
@@ -272,7 +298,6 @@ class MainWindow(tk.Tk):
 		self.visa_manager.set_oscilloscope_timebase_scale(div_size)
 
 		time_to_wait_ms = self._get_waiting_time(div_size, mean_samples)
-
 		self.logger.debug(f"Waiting {time_to_wait_ms} ms ({frequency_list[frequency_index]} Hz)...")
 
 		self.after_identifier = self.after(time_to_wait_ms, self._acquire_measure, frequency_list, frequency_index, mean_samples, time_to_wait_ms)
@@ -292,7 +317,8 @@ class MainWindow(tk.Tk):
 			self._acquire_measure(frequency_list, frequency_index, mean_samples, time_to_wait_ms)
 			return
 
-		self.logger.debug(f"vertical_range: {vertical_range}\t output amplitude measured: {amplitude_out}")
+		self.logger.info(f"Vertical range measured (CH{CHANNEL_OUT}) : {vertical_range}")
+		self.logger.info(f"Output amplitude measured : {amplitude_out}")
 
 		if amplitude_out > 0.9 * vertical_range:
 			self.visa_manager.set_oscilloscope_channel_range(CHANNEL_OUT, vertical_range * 2)
@@ -315,7 +341,7 @@ class MainWindow(tk.Tk):
 			self._acquire_measure(frequency_list, frequency_index, mean_samples, time_to_wait_ms)
 			return
 
-		self.logger.debug(f"input amplitude measured: {amplitude_in}")
+		self.logger.info(f"Input amplitude measured: {amplitude_in}")
 
 		# Measure phase
 		try:
@@ -324,7 +350,7 @@ class MainWindow(tk.Tk):
 			self._acquire_measure(frequency_list, frequency_index, mean_samples, time_to_wait_ms)
 			return
 
-		self.logger.debug(f"phase measured: {phase}")
+		self.logger.info(f"Phase measured: {phase}")
 
 		self.graph_panel.append_data_point(frequency_list[frequency_index], amplitude_in, amplitude_out, phase)
 		self.graph_panel.update_all_graph()
@@ -361,14 +387,19 @@ class MainWindow(tk.Tk):
 		return possible_div_sizes[-1]
 	
 	def _get_waiting_time (self, div_size, mean_samples):
-		time_to_wait = NUMBER_OF_HORIZONTAL_DIV * div_size	# Time we see on screen
+		time_to_wait_1 = NUMBER_OF_HORIZONTAL_DIV * div_size	# Time we see on screen
+		time_to_wait_2 = (MEMORY_DEPTH / SAMPLE_RATE)	# Limitation by memory
+
+		time_to_wait = max(time_to_wait_1, time_to_wait_2)
+
 		time_to_wait *= OSCILLOSCOPE_SECURITY_FACTOR
 		time_to_wait += OSCILLOSCOPE_PROCESSING_TIME_S
-		time_to_wait *= mean_samples**1.2
+		time_to_wait *= mean_samples
 		time_to_wait += OSCILLOSCOPE_STABILISATION_TIME_S
+
 		time_to_wait = max(time_to_wait, OSCILLOSCOPE_MINIMUM_WAITING_TIME_S) # Security
-		# REMOVE BEFORE FLIGHT
-		print(time_to_wait)
+
+		self.logger.info(f"Waiting {time_to_wait:.2f} s...")
 
 		time_to_wait_ms = int(time_to_wait * 1000)
 

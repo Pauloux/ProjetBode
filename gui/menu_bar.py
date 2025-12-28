@@ -42,7 +42,7 @@ class MenuBar (tk.Menu):
 		self.display_menu.add_checkbutton(label="2 graphiques", variable=self.show_two_graph, command=self._on_graph_selection)
 
 		self.show_debug = tk.BooleanVar(value=False)
-		self.display_menu.add_checkbutton(label="Debug", variable=self.show_debug)
+		self.display_menu.add_checkbutton(label="Debug", variable=self.show_debug, command=self._on_debug_change)
 
 		self.show_gain.trace_add("write", lambda *args: self.logger.debug(f"show_gain set to {self.show_gain.get()}"))
 		self.show_phase.trace_add("write", lambda *args: self.logger.debug(f"show_phase set to {self.show_phase.get()}"))
@@ -50,6 +50,9 @@ class MenuBar (tk.Menu):
 		self.show_debug.trace_add("write", lambda *args: self.logger.debug(f"show_debug set to {self.show_debug.get()}"))
 	
 	##### Interaction #####
+	def _on_debug_change (self, *args):
+		self._send_callback_debug()
+
 	def _on_save (self, extension):
 		self.callback_save(extension)
 
@@ -96,6 +99,15 @@ class MenuBar (tk.Menu):
 			self.display_menu.entryconfigure("2 graphiques", state=tk.DISABLED)
 
 	##### Callback #####
+	def set_callback_debug (self, callback_function):
+		self.callback_debug = callback_function
+	
+	def _send_callback_debug (self):
+		self.callback_debug(self.show_debug.get())
+
+	def trigger_callback_debug (self):
+		self._send_callback_debug()
+
 	def set_callback_save (self, callback_function):
 		self.callback_save = callback_function
 

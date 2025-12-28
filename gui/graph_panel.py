@@ -13,7 +13,6 @@ class GraphPanel (ttk.Frame):
 
 		self.logger = logger
 
-		self.grid(column=1, row=0, sticky="nsew")
 		self.columnconfigure(0, weight=1)
 		self.rowconfigure(0, weight=1)
 		self.rowconfigure(1, weight=1)
@@ -130,6 +129,7 @@ class SimpleGraph (ttk.Frame):
 		self.grid(column=0, row=row, sticky="nsew")
 		self.columnconfigure(0, weight=1)
 		self.rowconfigure(0, weight=1)
+		self.rowconfigure(1, weight=0)
 
 		self.logger = logger
 
@@ -137,11 +137,11 @@ class SimpleGraph (ttk.Frame):
 		self.ax = self.fig.add_subplot()
 		self.fig.patch.set_facecolor("#D9D9D9")
 
-		self.line, = self.ax.semilogx(1, 0)
+		self.line, = self.ax.semilogx(1, 0, marker="x")
 		self.ax.set_xlabel(x_axis_name)
 		self.ax.set_ylabel(y_axis_name)
 		self.ax.grid(visible=True)
-		self.fig.tight_layout()
+		self.fig.set_constrained_layout(True)
 
 		self.canva = FigureCanvasTkAgg(self.fig, self)
 		self.canva.draw()
@@ -180,6 +180,7 @@ class DoubleGraph (ttk.Frame):
 		self.grid(column=0, row=row, sticky="nsew")
 		self.columnconfigure(0, weight=1)
 		self.rowconfigure(0, weight=1)
+		self.rowconfigure(1, weight=0)
 
 		self.logger = logger
 
@@ -192,11 +193,11 @@ class DoubleGraph (ttk.Frame):
 		self.ax_2.set_ylabel(y_axis_2_name)
 		self.ax_1.grid(visible=True)
 
-		self.line_1, = self.ax_1.semilogx(1, 0)
-		self.line_2, = self.ax_2.semilogx(1, 0, linestyle="dotted")
+		self.line_1, = self.ax_1.semilogx(1, 0, marker="x")
+		self.line_2, = self.ax_2.semilogx(1, 0, marker="*", linestyle="dotted")
 
 		self.fig.patch.set_facecolor("#D9D9D9")
-		self.fig.tight_layout()
+		self.fig.set_constrained_layout(True)
 
 		self.canva = FigureCanvasTkAgg(self.fig, self)
 		self.canva.draw()

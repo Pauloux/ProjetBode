@@ -29,10 +29,10 @@ class VISAManager:
 	def _open_resource (self, port):
 		try:
 			instr = self.rm.open_resource(port)
-			self.logger.debug(f"Successfuly opened resource on port {port}")
+			self.logger.info(f"Successfuly opened resource on port {port}")
 			return instr
 		except Exception as e:
-			self.logger.debug(f"Failed to open resource on port {port}, error {e}")
+			self.logger.warning(f"Failed to open resource on port {port}, error {e}")
 			return None
 	
 	def _close_resource (self, instr_resource):
