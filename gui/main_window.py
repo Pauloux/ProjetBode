@@ -36,21 +36,24 @@ supported_instruments = {
 }
 
 ##### #####
-# To use mock, uncomment the following lines (import and supported_instruments)
+# To use mock, set USE_MOCK to True
 ##### #####
 
-#from instruments.mock.visa_manager import VISAManager
-#from instruments.mock.instrument import InstrumentMock
-#
-#supported_instruments = {
-#	"generator" : {
-#		"Argilent 33120A" : InstrumentMock,
-#		"RIGOL DG1022" : InstrumentMock
-#	},
-#	"oscilloscope" : {
-#		"RIGOL DS1074Z" : InstrumentMock
-#	}
-#}
+USE_MOCK = False
+
+if USE_MOCK :
+	from instruments.mock.visa_manager import VISAManager
+	from instruments.mock.instrument import InstrumentMock
+
+	supported_instruments = {
+		"generator" : {
+			"Argilent 33120A" : InstrumentMock,
+			"RIGOL DG1022" : InstrumentMock
+		},
+		"oscilloscope" : {
+			"RIGOL DS1074Z" : InstrumentMock
+		}
+	}
 
 class MainWindow(tk.Tk):
 	##### Creation of the window #####
