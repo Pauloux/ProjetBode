@@ -1,7 +1,10 @@
+import tkinter as tk
 import pyvisa
 
 TIMEOUT_MS = 50
 NUMBER_OF_QUERY_ATTEMPT = 100
+
+sudo_warning_message_showed = False
 
 class VISAManager:
 	def __init__ (self, supported_instruments, logger):
@@ -13,6 +16,8 @@ class VISAManager:
 		self.rm = pyvisa.ResourceManager()
 	
 	def get_relevant_ports (self):
+		global sudo_warning_message_showed
+
 		ports = self.rm.list_resources()
 
 		relevant_ports = []
@@ -23,6 +28,9 @@ class VISAManager:
 
 		if len(relevant_ports) == 0:
 			relevant_ports.append("Aucun port détecté")
+			if not sudo_warning_message_showed:
+				tk.messagebox.showinfo(message="Aucun port USB détecté.\nSi les instruments sont connectés mais ne sont pas détectés, vérifiez que vous exécutez bien le programme avec les droits administrateurs (sudo).")
+				sudo_warning_message_showed = True
 
 		return relevant_ports
 	
