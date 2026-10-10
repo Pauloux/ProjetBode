@@ -15,6 +15,8 @@ OSCILLOSCOPE_PROCESSING_TIME_S = 0
 OSCILLOSCOPE_STABILISATION_TIME_S = 0.2
 OSCILLOSCOPE_MINIMUM_WAITING_TIME_S = 1
 
+MAX_PHASE = 1e9
+
 CHANNEL_IN = 1
 CHANNEL_OUT = 2
 MIN_SIGNAL_PERIOD = 3
@@ -310,6 +312,7 @@ class MainWindow(tk.Tk):
 		try:
 			vertical_range = self.visa_manager.get_oscilloscope_channel_range(CHANNEL_OUT)
 		except Exception as e:
+			self.logger.warning(f"Vertical range could not be read. Starting a new measure...")
 			self._acquire_measure(frequency_list, frequency_index, mean_samples, time_to_wait_ms)
 			return
 
@@ -317,6 +320,7 @@ class MainWindow(tk.Tk):
 		try:
 			amplitude_out = self.visa_manager.measure_amplitude_pp(CHANNEL_OUT)
 		except Exception as e:
+			self.logger.warning(f"Output amplitude could not be measured. Starting a new measure...")
 			self._acquire_measure(frequency_list, frequency_index, mean_samples, time_to_wait_ms)
 			return
 
@@ -341,6 +345,7 @@ class MainWindow(tk.Tk):
 		try:
 			amplitude_in = self.visa_manager.measure_amplitude_pp(CHANNEL_IN)
 		except Exception as e:
+			self.logger.warning(f"Input amplitude could not be measured. Starting a new measure...")
 			self._acquire_measure(frequency_list, frequency_index, mean_samples, time_to_wait_ms)
 			return
 
@@ -349,7 +354,13 @@ class MainWindow(tk.Tk):
 		# Measure phase
 		try:
 			phase = self.visa_manager.measure_phase(CHANNEL_IN, CHANNEL_OUT)
+
+			if phase > MAX_PHASE:
+				self.logger.warning(f"Phase value too high. Measured: {phase} (maximum value is set to {MAX_PHASE})")
+				raise ValueError
+
 		except Exception as e:
+			self.logger.warning(f"Phase could not be measured. Starting a new measure...")
 			self._acquire_measure(frequency_list, frequency_index, mean_samples, time_to_wait_ms)
 			return
 
